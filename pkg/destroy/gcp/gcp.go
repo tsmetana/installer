@@ -16,6 +16,7 @@ import (
 	resourcemanager "google.golang.org/api/cloudresourcemanager/v1"
 	compute "google.golang.org/api/compute/v1"
 	dns "google.golang.org/api/dns/v1"
+	"google.golang.org/api/file/v1"
 	"google.golang.org/api/googleapi"
 	iam "google.golang.org/api/iam/v1"
 	"google.golang.org/api/option"
@@ -45,6 +46,7 @@ type ClusterUninstaller struct {
 	dnsSvc     *dns.Service
 	storageSvc *storage.Service
 	rmSvc      *resourcemanager.Service
+	fileSvc    *file.Service
 
 	// cloudControllerUID is the cluster ID used by the cluster's cloud controller
 	// to generate load balancer related resources. It can be obtained either
@@ -110,6 +112,11 @@ func (o *ClusterUninstaller) Run() error {
 		return errors.Wrap(err, "failed to create resourcemanager service")
 	}
 
+	o.fileSvc, err = file.NewService(ctx, options...)
+	if err != nil {
+		return errors.Wrap(err, "failed to create filestore service")
+	}
+
 	err = wait.PollImmediateInfinite(
 		time.Second*10,
 		o.destroyCluster,
@@ -145,6 +152,7 @@ func (o *ClusterUninstaller) destroyCluster() (bool, error) {
 		{name: "Routers", execute: o.destroyRouters},
 		{name: "Subnetworks", execute: o.destroySubnetworks},
 		{name: "Networks", execute: o.destroyNetworks},
+		{name: "Filestores", execute: o.destroyFilestores},
 	}}
 	done := true
 	for _, stage := range stagedFuncs {
