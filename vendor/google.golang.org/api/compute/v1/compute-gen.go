@@ -75,6 +75,7 @@ var _ = errors.New
 var _ = strings.Replace
 var _ = context.Canceled
 var _ = internaloption.WithDefaultEndpoint
+var _ = internal.Version
 
 const apiId = "compute:v1"
 const apiName = "compute"
@@ -172,6 +173,7 @@ func New(client *http.Client) (*Service, error) {
 	s.Instances = NewInstancesService(s)
 	s.InterconnectAttachments = NewInterconnectAttachmentsService(s)
 	s.InterconnectLocations = NewInterconnectLocationsService(s)
+	s.InterconnectRemoteLocations = NewInterconnectRemoteLocationsService(s)
 	s.Interconnects = NewInterconnectsService(s)
 	s.LicenseCodes = NewLicenseCodesService(s)
 	s.Licenses = NewLicensesService(s)
@@ -198,6 +200,7 @@ func New(client *http.Client) (*Service, error) {
 	s.RegionHealthChecks = NewRegionHealthChecksService(s)
 	s.RegionInstanceGroupManagers = NewRegionInstanceGroupManagersService(s)
 	s.RegionInstanceGroups = NewRegionInstanceGroupsService(s)
+	s.RegionInstanceTemplates = NewRegionInstanceTemplatesService(s)
 	s.RegionInstances = NewRegionInstancesService(s)
 	s.RegionNetworkEndpointGroups = NewRegionNetworkEndpointGroupsService(s)
 	s.RegionNetworkFirewallPolicies = NewRegionNetworkFirewallPoliciesService(s)
@@ -298,6 +301,8 @@ type Service struct {
 
 	InterconnectLocations *InterconnectLocationsService
 
+	InterconnectRemoteLocations *InterconnectRemoteLocationsService
+
 	Interconnects *InterconnectsService
 
 	LicenseCodes *LicenseCodesService
@@ -349,6 +354,8 @@ type Service struct {
 	RegionInstanceGroupManagers *RegionInstanceGroupManagersService
 
 	RegionInstanceGroups *RegionInstanceGroupsService
+
+	RegionInstanceTemplates *RegionInstanceTemplatesService
 
 	RegionInstances *RegionInstancesService
 
@@ -682,6 +689,15 @@ type InterconnectLocationsService struct {
 	s *Service
 }
 
+func NewInterconnectRemoteLocationsService(s *Service) *InterconnectRemoteLocationsService {
+	rs := &InterconnectRemoteLocationsService{s: s}
+	return rs
+}
+
+type InterconnectRemoteLocationsService struct {
+	s *Service
+}
+
 func NewInterconnectsService(s *Service) *InterconnectsService {
 	rs := &InterconnectsService{s: s}
 	return rs
@@ -913,6 +929,15 @@ func NewRegionInstanceGroupsService(s *Service) *RegionInstanceGroupsService {
 }
 
 type RegionInstanceGroupsService struct {
+	s *Service
+}
+
+func NewRegionInstanceTemplatesService(s *Service) *RegionInstanceTemplatesService {
+	rs := &RegionInstanceTemplatesService{s: s}
+	return rs
+}
+
+type RegionInstanceTemplatesService struct {
 	s *Service
 }
 
@@ -1436,6 +1461,9 @@ type AcceleratorTypeAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -1626,6 +1654,9 @@ type AcceleratorTypeListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -1795,6 +1826,9 @@ type AcceleratorTypesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -1905,31 +1939,35 @@ func (s *AcceleratorTypesScopedListWarningData) MarshalJSON() ([]byte, error) {
 // AccessConfig: An access configuration attached to an instance's
 // network interface. Only one access config per instance is supported.
 type AccessConfig struct {
-	// ExternalIpv6: The first IPv6 address of the external IPv6 range
-	// associated with this instance, prefix length is stored in
-	// externalIpv6PrefixLength in ipv6AccessConfig. The field is output
-	// only, an IPv6 address from a subnetwork associated with the instance
-	// will be allocated dynamically.
+	// ExternalIpv6: Applies to ipv6AccessConfigs only. The first IPv6
+	// address of the external IPv6 range associated with this instance,
+	// prefix length is stored in externalIpv6PrefixLength in
+	// ipv6AccessConfig. To use a static external IP address, it must be
+	// unused and in the same region as the instance's zone. If not
+	// specified, Google Cloud will automatically assign an external IPv6
+	// address from the instance's subnetwork.
 	ExternalIpv6 string `json:"externalIpv6,omitempty"`
 
-	// ExternalIpv6PrefixLength: The prefix length of the external IPv6
-	// range.
+	// ExternalIpv6PrefixLength: Applies to ipv6AccessConfigs only. The
+	// prefix length of the external IPv6 range.
 	ExternalIpv6PrefixLength int64 `json:"externalIpv6PrefixLength,omitempty"`
 
 	// Kind: [Output Only] Type of the resource. Always compute#accessConfig
 	// for access configs.
 	Kind string `json:"kind,omitempty"`
 
-	// Name: The name of this access configuration. The default and
-	// recommended name is External NAT, but you can use any arbitrary
-	// string, such as My external IP or Network Access.
+	// Name: The name of this access configuration. In accessConfigs (IPv4),
+	// the default and recommended name is External NAT, but you can use any
+	// arbitrary string, such as My external IP or Network Access. In
+	// ipv6AccessConfigs, the recommend name is External IPv6.
 	Name string `json:"name,omitempty"`
 
-	// NatIP: An external IP address associated with this instance. Specify
-	// an unused static external IP address available to the project or
-	// leave this field undefined to use an IP from a shared ephemeral IP
-	// address pool. If you specify a static external IP address, it must
-	// live in the same region as the zone of the instance.
+	// NatIP: Applies to accessConfigs (IPv4) only. An external IP address
+	// associated with this instance. Specify an unused static external IP
+	// address available to the project or leave this field undefined to use
+	// an IP from a shared ephemeral IP address pool. If you specify a
+	// static external IP address, it must live in the same region as the
+	// zone of the instance.
 	NatIP string `json:"natIP,omitempty"`
 
 	// NetworkTier: This signifies the networking tier used for configuring
@@ -1965,12 +2003,13 @@ type AccessConfig struct {
 	// associated.
 	SetPublicPtr bool `json:"setPublicPtr,omitempty"`
 
-	// Type: The type of configuration. The default and only option is
-	// ONE_TO_ONE_NAT.
+	// Type: The type of configuration. In accessConfigs (IPv4), the default
+	// and only option is ONE_TO_ONE_NAT. In ipv6AccessConfigs, the default
+	// and only option is DIRECT_IPV6.
 	//
 	// Possible values:
 	//   "DIRECT_IPV6"
-	//   "ONE_TO_ONE_NAT" (default)
+	//   "ONE_TO_ONE_NAT"
 	Type string `json:"type,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ExternalIpv6") to
@@ -2051,6 +2090,21 @@ type Address struct {
 	// Kind: [Output Only] Type of the resource. Always compute#address for
 	// addresses.
 	Kind string `json:"kind,omitempty"`
+
+	// LabelFingerprint: A fingerprint for the labels being applied to this
+	// Address, which is essentially a hash of the labels set used for
+	// optimistic locking. The fingerprint is initially generated by Compute
+	// Engine and changes after every request to modify or update labels.
+	// You must always provide an up-to-date fingerprint hash in order to
+	// update or change labels, otherwise the request will fail with error
+	// 412 conditionNotMet. To see the latest fingerprint, make a get()
+	// request to retrieve an Address.
+	LabelFingerprint string `json:"labelFingerprint,omitempty"`
+
+	// Labels: Labels for this resource. These can only be added or modified
+	// by the setLabels method. Each label key/value pair must comply with
+	// RFC1035. Label values may be empty.
+	Labels map[string]string `json:"labels,omitempty"`
 
 	// Name: Name of the resource. Provided by the client when the resource
 	// is created. The name must be 1-63 characters long, and comply with
@@ -2272,6 +2326,9 @@ type AddressAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -2461,6 +2518,9 @@ type AddressListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -2628,6 +2688,9 @@ type AddressesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -2827,6 +2890,68 @@ func (s *AliasIpRange) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// AllocationResourceStatus: [Output Only] Contains output only fields.
+type AllocationResourceStatus struct {
+	// SpecificSkuAllocation: Allocation Properties of this reservation.
+	SpecificSkuAllocation *AllocationResourceStatusSpecificSKUAllocation `json:"specificSkuAllocation,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g.
+	// "SpecificSkuAllocation") to unconditionally include in API requests.
+	// By default, fields with empty or default values are omitted from API
+	// requests. However, any non-pointer, non-interface field appearing in
+	// ForceSendFields will be sent to the server regardless of whether the
+	// field is empty or not. This may be used to include empty fields in
+	// Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "SpecificSkuAllocation") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *AllocationResourceStatus) MarshalJSON() ([]byte, error) {
+	type NoMethod AllocationResourceStatus
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// AllocationResourceStatusSpecificSKUAllocation: Contains Properties
+// set for the reservation.
+type AllocationResourceStatusSpecificSKUAllocation struct {
+	// SourceInstanceTemplateId: ID of the instance template used to
+	// populate reservation properties.
+	SourceInstanceTemplateId string `json:"sourceInstanceTemplateId,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g.
+	// "SourceInstanceTemplateId") to unconditionally include in API
+	// requests. By default, fields with empty or default values are omitted
+	// from API requests. However, any non-pointer, non-interface field
+	// appearing in ForceSendFields will be sent to the server regardless of
+	// whether the field is empty or not. This may be used to include empty
+	// fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "SourceInstanceTemplateId")
+	// to include in API requests with the JSON null value. By default,
+	// fields with empty values are omitted from API requests. However, any
+	// field with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *AllocationResourceStatusSpecificSKUAllocation) MarshalJSON() ([]byte, error) {
+	type NoMethod AllocationResourceStatusSpecificSKUAllocation
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 type AllocationSpecificSKUAllocationAllocatedInstancePropertiesReservedDisk struct {
 	// DiskSizeGb: Specifies the size of the disk in base-2 GB.
 	DiskSizeGb int64 `json:"diskSizeGb,omitempty,string"`
@@ -2927,6 +3052,17 @@ type AllocationSpecificSKUReservation struct {
 
 	// InstanceProperties: The instance properties for the reservation.
 	InstanceProperties *AllocationSpecificSKUAllocationReservedInstanceProperties `json:"instanceProperties,omitempty"`
+
+	// SourceInstanceTemplate: Specifies the instance template to create the
+	// reservation. If you use this field, you must exclude the
+	// instanceProperties field. This field is optional, and it can be a
+	// full or partial URL. For example, the following are all valid URLs to
+	// an instance template: -
+	// https://www.googleapis.com/compute/v1/projects/project
+	// /global/instanceTemplates/instanceTemplate -
+	// projects/project/global/instanceTemplates/instanceTemplate -
+	// global/instanceTemplates/instanceTemplate
+	SourceInstanceTemplate string `json:"sourceInstanceTemplate,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "AssuredCount") to
 	// unconditionally include in API requests. By default, fields with
@@ -3054,6 +3190,17 @@ type AttachedDisk struct {
 	// read-write mode.
 	Mode string `json:"mode,omitempty"`
 
+	// SavedState: For LocalSSD disks on VM Instances in STOPPED or
+	// SUSPENDED state, this field is set to PRESERVED if the LocalSSD data
+	// has been saved to a persistent location by customer request. (see the
+	// discard_local_ssd option on Stop/Suspend). Read-only in the api.
+	//
+	// Possible values:
+	//   "DISK_SAVED_STATE_UNSPECIFIED" - *[Default]* Disk state has not
+	// been preserved.
+	//   "PRESERVED" - Disk state has been preserved.
+	SavedState string `json:"savedState,omitempty"`
+
 	// ShieldedInstanceInitialState: [Output Only] shielded vm initial state
 	// stored on disk
 	ShieldedInstanceInitialState *InitialStateConfig `json:"shieldedInstanceInitialState,omitempty"`
@@ -3176,6 +3323,18 @@ type AttachedDiskInitializeParams struct {
 	// handle. Values must be between 10,000 and 120,000. For more details,
 	// see the Extreme persistent disk documentation.
 	ProvisionedIops int64 `json:"provisionedIops,omitempty,string"`
+
+	// ProvisionedThroughput: Indicates how much throughput to provision for
+	// the disk. This sets the number of throughput mb per second that the
+	// disk can handle. Values must be between 1 and 7,124.
+	ProvisionedThroughput int64 `json:"provisionedThroughput,omitempty,string"`
+
+	// ReplicaZones: Required for each regional disk associated with the
+	// instance. Specify the URLs of the zones where the disk should be
+	// replicated to. You must provide exactly two replica zones, and one
+	// zone must be the same as the instance zone. You can't use this option
+	// with boot disks.
+	ReplicaZones []string `json:"replicaZones,omitempty"`
 
 	// ResourceManagerTags: Resource manager tags to be bound to the disk.
 	// Tag keys and values have the same definition as resource manager
@@ -3595,6 +3754,9 @@ type AutoscalerAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -3784,6 +3946,9 @@ type AutoscalerListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -4067,6 +4232,9 @@ type AutoscalersScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -4176,15 +4344,17 @@ func (s *AutoscalersScopedListWarningData) MarshalJSON() ([]byte, error) {
 
 // AutoscalingPolicy: Cloud Autoscaler policy.
 type AutoscalingPolicy struct {
-	// CoolDownPeriodSec: The number of seconds that the autoscaler waits
-	// before it starts collecting information from a new instance. This
-	// prevents the autoscaler from collecting information when the instance
-	// is initializing, during which the collected usage would not be
-	// reliable. The default time autoscaler waits is 60 seconds. Virtual
-	// machine initialization times might vary because of numerous factors.
-	// We recommend that you test how long an instance may take to
-	// initialize. To do this, create an instance and time the startup
-	// process.
+	// CoolDownPeriodSec: The number of seconds that your application takes
+	// to initialize on a VM instance. This is referred to as the
+	// initialization period (/compute/docs/autoscaler#cool_down_period).
+	// Specifying an accurate initialization period improves autoscaler
+	// decisions. For example, when scaling out, the autoscaler ignores data
+	// from VMs that are still initializing because those VMs might not yet
+	// represent normal usage of your application. The default
+	// initialization period is 60 seconds. Initialization periods might
+	// vary because of numerous factors. We recommend that you test how long
+	// your application takes to initialize. To do this, create a VM and
+	// time your application's startup process.
 	CoolDownPeriodSec int64 `json:"coolDownPeriodSec,omitempty"`
 
 	// CpuUtilization: Defines the CPU utilization policy that allows the
@@ -4212,7 +4382,12 @@ type AutoscalingPolicy struct {
 	// instances allowed.
 	MinNumReplicas int64 `json:"minNumReplicas,omitempty"`
 
-	// Mode: Defines operating mode for this policy.
+	// Mode: Defines the operating mode for this policy. The following modes
+	// are available: - OFF: Disables the autoscaler but maintains its
+	// configuration. - ONLY_SCALE_OUT: Restricts the autoscaler to add VM
+	// instances only. - ON: Enables all autoscaler activities according to
+	// its policy. For more information, see "Turning off or restricting an
+	// autoscaler"
 	//
 	// Possible values:
 	//   "OFF" - Do not automatically scale the MIG in or out. The
@@ -5160,6 +5335,9 @@ type BackendBucketListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -5416,12 +5594,16 @@ type BackendService struct {
 	//   "INVALID_LOAD_BALANCING_SCHEME"
 	LoadBalancingScheme string `json:"loadBalancingScheme,omitempty"`
 
-	// LocalityLbPolicies: A list of locality load balancing policies to be
-	// used in order of preference. Either the policy or the customPolicy
-	// field should be set. Overrides any value set in the localityLbPolicy
-	// field. localityLbPolicies is only supported when the BackendService
-	// is referenced by a URL Map that is referenced by a target gRPC proxy
-	// that has the validateForProxyless field set to true.
+	// LocalityLbPolicies: A list of locality load-balancing policies to be
+	// used in order of preference. When you use localityLbPolicies, you
+	// must set at least one value for either the
+	// localityLbPolicies[].policy or the localityLbPolicies[].customPolicy
+	// field. localityLbPolicies overrides any value set in the
+	// localityLbPolicy field. For an example of how to use this field, see
+	// Define a list of preferred policies. Caution: This field and its
+	// children are intended for use in a service mesh that includes gRPC
+	// clients only. Envoy proxies can't use backend services that have this
+	// configuration.
 	LocalityLbPolicies []*BackendServiceLocalityLoadBalancingPolicyConfig `json:"localityLbPolicies,omitempty"`
 
 	// LocalityLbPolicy: The load balancing algorithm used within the scope
@@ -5473,6 +5655,16 @@ type BackendService struct {
 	// of the requests.
 	//   "ROUND_ROBIN" - This is a simple policy in which each healthy
 	// backend is selected in round robin order. This is the default.
+	//   "WEIGHTED_MAGLEV" - Per-instance weighted Load Balancing via health
+	// check reported weights. If set, the Backend Service must configure a
+	// non legacy HTTP-based Health Check, and health check replies are
+	// expected to contain non-standard HTTP response header field
+	// X-Load-Balancing-Endpoint-Weight to specify the per-instance weights.
+	// If set, Load Balancing is weighted based on the per-instance weights
+	// reported in the last processed health check replies, as long as every
+	// instance either reported a valid weight or had UNAVAILABLE_WEIGHT.
+	// Otherwise, Load Balancing remains equal-weight. This option is only
+	// supported in Network Load Balancing.
 	LocalityLbPolicy string `json:"localityLbPolicy,omitempty"`
 
 	// LogConfig: This field denotes the logging options for the load
@@ -5490,6 +5682,10 @@ type BackendService struct {
 	// backend service. This field is only allowed when the
 	// loadBalancingScheme of the backend service is INTERNAL_SELF_MANAGED.
 	MaxStreamDuration *Duration `json:"maxStreamDuration,omitempty"`
+
+	// Metadatas: Deployment metadata associated with the resource to be set
+	// by a GKE hub controller and read by the backend RCTH
+	Metadatas map[string]string `json:"metadatas,omitempty"`
 
 	// Name: Name of the resource. Provided by the client when the resource
 	// is created. The name must be 1-63 characters long, and comply with
@@ -5735,6 +5931,9 @@ type BackendServiceAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -6405,6 +6604,9 @@ type BackendServiceListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -6551,12 +6753,13 @@ type BackendServiceLocalityLoadBalancingPolicyConfigCustomPolicy struct {
 	// understood by a locally installed custom policy implementation.
 	Data string `json:"data,omitempty"`
 
-	// Name: Identifies the custom policy. The value should match the type
-	// the custom implementation is registered with on the gRPC clients. It
-	// should follow protocol buffer message naming conventions and include
-	// the full path (e.g. myorg.CustomLbPolicy). The maximum length is 256
-	// characters. Note that specifying the same custom policy more than
-	// once for a backend is not a valid configuration and will be rejected.
+	// Name: Identifies the custom policy. The value should match the name
+	// of a custom implementation registered on the gRPC clients. It should
+	// follow protocol buffer message naming conventions and include the
+	// full path (for example, myorg.CustomLbPolicy). The maximum length is
+	// 256 characters. Do not specify the same custom policy more than once
+	// for a backend. If you do, the configuration is rejected. For an
+	// example of how to use this field, see Use a custom policy.
 	Name string `json:"name,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Data") to
@@ -6585,12 +6788,11 @@ func (s *BackendServiceLocalityLoadBalancingPolicyConfigCustomPolicy) MarshalJSO
 // BackendServiceLocalityLoadBalancingPolicyConfigPolicy: The
 // configuration for a built-in load balancing policy.
 type BackendServiceLocalityLoadBalancingPolicyConfigPolicy struct {
-	// Name: The name of a locality load balancer policy to be used. The
-	// value should be one of the predefined ones as supported by
-	// localityLbPolicy, although at the moment only ROUND_ROBIN is
-	// supported. This field should only be populated when the customPolicy
-	// field is not used. Note that specifying the same policy more than
-	// once for a backend is not a valid configuration and will be rejected.
+	// Name: The name of a locality load-balancing policy. Valid values
+	// include ROUND_ROBIN and, for Java clients, LEAST_REQUEST. For
+	// information about these values, see the description of
+	// localityLbPolicy. Do not specify the same policy more than once for a
+	// backend. If you do, the configuration is rejected.
 	//
 	// Possible values:
 	//   "INVALID_LB_POLICY"
@@ -6613,6 +6815,16 @@ type BackendServiceLocalityLoadBalancingPolicyConfigPolicy struct {
 	// of the requests.
 	//   "ROUND_ROBIN" - This is a simple policy in which each healthy
 	// backend is selected in round robin order. This is the default.
+	//   "WEIGHTED_MAGLEV" - Per-instance weighted Load Balancing via health
+	// check reported weights. If set, the Backend Service must configure a
+	// non legacy HTTP-based Health Check, and health check replies are
+	// expected to contain non-standard HTTP response header field
+	// X-Load-Balancing-Endpoint-Weight to specify the per-instance weights.
+	// If set, Load Balancing is weighted based on the per-instance weights
+	// reported in the last processed health check replies, as long as every
+	// instance either reported a valid weight or had UNAVAILABLE_WEIGHT.
+	// Otherwise, Load Balancing remains equal-weight. This option is only
+	// supported in Network Load Balancing.
 	Name string `json:"name,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Name") to
@@ -6644,6 +6856,25 @@ type BackendServiceLogConfig struct {
 	// Enable: Denotes whether to enable logging for the load balancer
 	// traffic served by this backend service. The default value is false.
 	Enable bool `json:"enable,omitempty"`
+
+	// OptionalFields: This field can only be specified if logging is
+	// enabled for this backend service and "logConfig.optionalMode" was set
+	// to CUSTOM. Contains a list of optional fields you want to include in
+	// the logs. For example: serverInstance, serverGkeDetails.cluster,
+	// serverGkeDetails.pod.podNamespace
+	OptionalFields []string `json:"optionalFields,omitempty"`
+
+	// OptionalMode: This field can only be specified if logging is enabled
+	// for this backend service. Configures whether all, none or a subset of
+	// optional fields should be added to the reported logs. One of
+	// [INCLUDE_ALL_OPTIONAL, EXCLUDE_ALL_OPTIONAL, CUSTOM]. Default is
+	// EXCLUDE_ALL_OPTIONAL.
+	//
+	// Possible values:
+	//   "CUSTOM" - A subset of optional fields.
+	//   "EXCLUDE_ALL_OPTIONAL" - None optional fields.
+	//   "INCLUDE_ALL_OPTIONAL" - All optional fields.
+	OptionalMode string `json:"optionalMode,omitempty"`
 
 	// SampleRate: This field can only be specified if logging is enabled
 	// for this backend service. The value of the field must be in [0, 1].
@@ -6777,6 +7008,9 @@ type BackendServicesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -7162,7 +7396,9 @@ type Binding struct {
 	// (https://cloud.google.com/kubernetes-engine/docs/how-to/kubernetes-service-accounts).
 	// For example, `my-project.svc.id.goog[my-namespace/my-kubernetes-sa]`.
 	// * `group:{emailid}`: An email address that represents a Google group.
-	// For example, `admins@example.com`. *
+	// For example, `admins@example.com`. * `domain:{domain}`: The G Suite
+	// domain (primary) that represents all the users of that domain. For
+	// example, `google.com` or `example.com`. *
 	// `deleted:user:{emailid}?uid={uniqueid}`: An email address (plus
 	// unique identifier) representing a user that has been recently
 	// deleted. For example, `alice@example.com?uid=123456789012345678901`.
@@ -7179,9 +7415,7 @@ type Binding struct {
 	// that has been recently deleted. For example,
 	// `admins@example.com?uid=123456789012345678901`. If the group is
 	// recovered, this value reverts to `group:{emailid}` and the recovered
-	// group retains the role in the binding. * `domain:{domain}`: The G
-	// Suite domain (primary) that represents all the users of that domain.
-	// For example, `google.com` or `example.com`.
+	// group retains the role in the binding.
 	Members []string `json:"members,omitempty"`
 
 	// Role: Role that is assigned to the list of `members`, or principals.
@@ -7207,6 +7441,44 @@ type Binding struct {
 
 func (s *Binding) MarshalJSON() ([]byte, error) {
 	type NoMethod Binding
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// BulkInsertDiskResource: A transient resource used in
+// compute.disks.bulkInsert and compute.regionDisks.bulkInsert. It is
+// only used to process requests and is not persisted.
+type BulkInsertDiskResource struct {
+	// SourceConsistencyGroupPolicy: The URL of the
+	// DiskConsistencyGroupPolicy for the group of disks to clone. This may
+	// be a full or partial URL, such as: -
+	// https://www.googleapis.com/compute/v1/projects/project/regions/region
+	// /resourcePolicies/resourcePolicy -
+	// projects/project/regions/region/resourcePolicies/resourcePolicy -
+	// regions/region/resourcePolicies/resourcePolicy
+	SourceConsistencyGroupPolicy string `json:"sourceConsistencyGroupPolicy,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g.
+	// "SourceConsistencyGroupPolicy") to unconditionally include in API
+	// requests. By default, fields with empty or default values are omitted
+	// from API requests. However, any non-pointer, non-interface field
+	// appearing in ForceSendFields will be sent to the server regardless of
+	// whether the field is empty or not. This may be used to include empty
+	// fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g.
+	// "SourceConsistencyGroupPolicy") to include in API requests with the
+	// JSON null value. By default, fields with empty values are omitted
+	// from API requests. However, any field with an empty value appearing
+	// in NullFields will be sent to the server as null. It is an error if a
+	// field in this list has a non-empty value. This may be used to include
+	// null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *BulkInsertDiskResource) MarshalJSON() ([]byte, error) {
+	type NoMethod BulkInsertDiskResource
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -7556,7 +7828,7 @@ type Commitment struct {
 	// SelfLink: [Output Only] Server-defined URL for the resource.
 	SelfLink string `json:"selfLink,omitempty"`
 
-	// SplitSourceCommitment: Source commitment to be splitted into a new
+	// SplitSourceCommitment: Source commitment to be split into a new
 	// commitment.
 	SplitSourceCommitment string `json:"splitSourceCommitment,omitempty"`
 
@@ -7570,7 +7842,8 @@ type Commitment struct {
 	//
 	// Possible values:
 	//   "ACTIVE"
-	//   "CANCELLED"
+	//   "CANCELLED" - Deprecate CANCELED status. Will use separate status
+	// to differentiate cancel by mergeCud or manual cancellation.
 	//   "CREATING"
 	//   "EXPIRED"
 	//   "NOT_YET_ACTIVE"
@@ -7590,11 +7863,13 @@ type Commitment struct {
 	//   "ACCELERATOR_OPTIMIZED"
 	//   "COMPUTE_OPTIMIZED"
 	//   "COMPUTE_OPTIMIZED_C2D"
+	//   "COMPUTE_OPTIMIZED_C3"
 	//   "GENERAL_PURPOSE"
 	//   "GENERAL_PURPOSE_E2"
 	//   "GENERAL_PURPOSE_N2"
 	//   "GENERAL_PURPOSE_N2D"
 	//   "GENERAL_PURPOSE_T2D"
+	//   "GRAPHICS_OPTIMIZED"
 	//   "MEMORY_OPTIMIZED"
 	//   "MEMORY_OPTIMIZED_M3"
 	//   "TYPE_UNSPECIFIED"
@@ -7712,6 +7987,9 @@ type CommitmentAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -7901,6 +8179,9 @@ type CommitmentListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -8069,6 +8350,9 @@ type CommitmentsScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -8642,6 +8926,13 @@ type Disk struct {
 	//   "X86_64" - Machines with architecture X86_64
 	Architecture string `json:"architecture,omitempty"`
 
+	// AsyncPrimaryDisk: Disk asynchronously replicated into this disk.
+	AsyncPrimaryDisk *DiskAsyncReplication `json:"asyncPrimaryDisk,omitempty"`
+
+	// AsyncSecondaryDisks: [Output Only] A list of disks this disk is
+	// asynchronously replicated to.
+	AsyncSecondaryDisks map[string]DiskAsyncReplicationList `json:"asyncSecondaryDisks,omitempty"`
+
 	// CreationTimestamp: [Output Only] Creation timestamp in RFC3339 text
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
@@ -8746,6 +9037,11 @@ type Disk struct {
 	// see the Extreme persistent disk documentation.
 	ProvisionedIops int64 `json:"provisionedIops,omitempty,string"`
 
+	// ProvisionedThroughput: Indicates how much throughput to provision for
+	// the disk. This sets the number of throughput mb per second that the
+	// disk can handle. Values must be between 1 and 7,124.
+	ProvisionedThroughput int64 `json:"provisionedThroughput,omitempty,string"`
+
 	// Region: [Output Only] URL of the region where the disk resides. Only
 	// applicable for regional resources. You must specify this field as
 	// part of the HTTP request URL. It is not settable as a field in the
@@ -8759,6 +9055,10 @@ type Disk struct {
 	// ResourcePolicies: Resource policies applied to this disk for
 	// automatic snapshot creations.
 	ResourcePolicies []string `json:"resourcePolicies,omitempty"`
+
+	// ResourceStatus: [Output Only] Status information for the disk
+	// resource.
+	ResourceStatus *DiskResourceStatus `json:"resourceStatus,omitempty"`
 
 	// SatisfiesPzs: [Output Only] Reserved for future use.
 	SatisfiesPzs bool `json:"satisfiesPzs,omitempty"`
@@ -8774,6 +9074,16 @@ type Disk struct {
 	// a source, the value of sizeGb must not be less than the size of the
 	// source. Acceptable values are 1 to 65536, inclusive.
 	SizeGb int64 `json:"sizeGb,omitempty,string"`
+
+	// SourceConsistencyGroupPolicy: [Output Only] URL of the
+	// DiskConsistencyGroupPolicy for a secondary disk that was created
+	// using a consistency group.
+	SourceConsistencyGroupPolicy string `json:"sourceConsistencyGroupPolicy,omitempty"`
+
+	// SourceConsistencyGroupPolicyId: [Output Only] ID of the
+	// DiskConsistencyGroupPolicy for a secondary disk that was created
+	// using a consistency group.
+	SourceConsistencyGroupPolicyId string `json:"sourceConsistencyGroupPolicyId,omitempty"`
 
 	// SourceDisk: The source disk used to create this disk. You can provide
 	// this as a partial or full URL to the resource. For example, the
@@ -8992,6 +9302,9 @@ type DiskAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -9095,6 +9408,86 @@ type DiskAggregatedListWarningData struct {
 
 func (s *DiskAggregatedListWarningData) MarshalJSON() ([]byte, error) {
 	type NoMethod DiskAggregatedListWarningData
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type DiskAsyncReplication struct {
+	// ConsistencyGroupPolicy: [Output Only] URL of the
+	// DiskConsistencyGroupPolicy if replication was started on the disk as
+	// a member of a group.
+	ConsistencyGroupPolicy string `json:"consistencyGroupPolicy,omitempty"`
+
+	// ConsistencyGroupPolicyId: [Output Only] ID of the
+	// DiskConsistencyGroupPolicy if replication was started on the disk as
+	// a member of a group.
+	ConsistencyGroupPolicyId string `json:"consistencyGroupPolicyId,omitempty"`
+
+	// Disk: The other disk asynchronously replicated to or from the current
+	// disk. You can provide this as a partial or full URL to the resource.
+	// For example, the following are valid values: -
+	// https://www.googleapis.com/compute/v1/projects/project/zones/zone
+	// /disks/disk - projects/project/zones/zone/disks/disk -
+	// zones/zone/disks/disk
+	Disk string `json:"disk,omitempty"`
+
+	// DiskId: [Output Only] The unique ID of the other disk asynchronously
+	// replicated to or from the current disk. This value identifies the
+	// exact disk that was used to create this replication. For example, if
+	// you started replicating the persistent disk from a disk that was
+	// later deleted and recreated under the same name, the disk ID would
+	// identify the exact version of the disk that was used.
+	DiskId string `json:"diskId,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g.
+	// "ConsistencyGroupPolicy") to unconditionally include in API requests.
+	// By default, fields with empty or default values are omitted from API
+	// requests. However, any non-pointer, non-interface field appearing in
+	// ForceSendFields will be sent to the server regardless of whether the
+	// field is empty or not. This may be used to include empty fields in
+	// Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "ConsistencyGroupPolicy")
+	// to include in API requests with the JSON null value. By default,
+	// fields with empty values are omitted from API requests. However, any
+	// field with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *DiskAsyncReplication) MarshalJSON() ([]byte, error) {
+	type NoMethod DiskAsyncReplication
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type DiskAsyncReplicationList struct {
+	AsyncReplicationDisk *DiskAsyncReplication `json:"asyncReplicationDisk,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g.
+	// "AsyncReplicationDisk") to unconditionally include in API requests.
+	// By default, fields with empty or default values are omitted from API
+	// requests. However, any non-pointer, non-interface field appearing in
+	// ForceSendFields will be sent to the server regardless of whether the
+	// field is empty or not. This may be used to include empty fields in
+	// Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "AsyncReplicationDisk") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *DiskAsyncReplicationList) MarshalJSON() ([]byte, error) {
+	type NoMethod DiskAsyncReplicationList
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -9261,6 +9654,9 @@ type DiskListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -9440,6 +9836,70 @@ func (s *DiskParams) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+type DiskResourceStatus struct {
+	AsyncPrimaryDisk *DiskResourceStatusAsyncReplicationStatus `json:"asyncPrimaryDisk,omitempty"`
+
+	// AsyncSecondaryDisks: Key: disk, value: AsyncReplicationStatus message
+	AsyncSecondaryDisks map[string]DiskResourceStatusAsyncReplicationStatus `json:"asyncSecondaryDisks,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "AsyncPrimaryDisk") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "AsyncPrimaryDisk") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *DiskResourceStatus) MarshalJSON() ([]byte, error) {
+	type NoMethod DiskResourceStatus
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type DiskResourceStatusAsyncReplicationStatus struct {
+	// Possible values:
+	//   "ACTIVE" - Replication is active.
+	//   "CREATED" - Secondary disk is created and is waiting for
+	// replication to start.
+	//   "STARTING" - Replication is starting.
+	//   "STATE_UNSPECIFIED"
+	//   "STOPPED" - Replication is stopped.
+	//   "STOPPING" - Replication is stopping.
+	State string `json:"state,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "State") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "State") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *DiskResourceStatusAsyncReplicationStatus) MarshalJSON() ([]byte, error) {
+	type NoMethod DiskResourceStatusAsyncReplicationStatus
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // DiskType: Represents a Disk Type resource. Google Compute Engine has
 // two Disk Type resources: * Regional
 // (/compute/docs/reference/rest/v1/regionDiskTypes) * Zonal
@@ -9608,6 +10068,9 @@ type DiskTypeAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -9797,6 +10260,9 @@ type DiskTypeListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -9965,6 +10431,9 @@ type DiskTypesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -10217,6 +10686,9 @@ type DisksScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -10320,6 +10792,79 @@ type DisksScopedListWarningData struct {
 
 func (s *DisksScopedListWarningData) MarshalJSON() ([]byte, error) {
 	type NoMethod DisksScopedListWarningData
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type DisksStartAsyncReplicationRequest struct {
+	// AsyncSecondaryDisk: The secondary disk to start asynchronous
+	// replication to. You can provide this as a partial or full URL to the
+	// resource. For example, the following are valid values: -
+	// https://www.googleapis.com/compute/v1/projects/project/zones/zone
+	// /disks/disk -
+	// https://www.googleapis.com/compute/v1/projects/project/regions/region
+	// /disks/disk - projects/project/zones/zone/disks/disk -
+	// projects/project/regions/region/disks/disk - zones/zone/disks/disk -
+	// regions/region/disks/disk
+	AsyncSecondaryDisk string `json:"asyncSecondaryDisk,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "AsyncSecondaryDisk")
+	// to unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "AsyncSecondaryDisk") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *DisksStartAsyncReplicationRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod DisksStartAsyncReplicationRequest
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// DisksStopGroupAsyncReplicationResource: A transient resource used in
+// compute.disks.stopGroupAsyncReplication and
+// compute.regionDisks.stopGroupAsyncReplication. It is only used to
+// process requests and is not persisted.
+type DisksStopGroupAsyncReplicationResource struct {
+	// ResourcePolicy: The URL of the DiskConsistencyGroupPolicy for the
+	// group of disks to stop. This may be a full or partial URL, such as: -
+	// https://www.googleapis.com/compute/v1/projects/project/regions/region
+	// /resourcePolicies/resourcePolicy -
+	// projects/project/regions/region/resourcePolicies/resourcePolicy -
+	// regions/region/resourcePolicies/resourcePolicy
+	ResourcePolicy string `json:"resourcePolicy,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "ResourcePolicy") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "ResourcePolicy") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *DisksStopGroupAsyncReplicationResource) MarshalJSON() ([]byte, error) {
+	type NoMethod DisksStopGroupAsyncReplicationResource
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -10660,6 +11205,9 @@ type ExchangedPeeringRoutesListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -11069,6 +11617,9 @@ type ExternalVpnGatewayListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -11538,6 +12089,9 @@ type FirewallListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -11961,6 +12515,9 @@ type FirewallPolicyListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -12073,8 +12630,7 @@ func (s *FirewallPolicyListWarningData) MarshalJSON() ([]byte, error) {
 // matches this condition (allow or deny).
 type FirewallPolicyRule struct {
 	// Action: The Action to perform when the client connection triggers the
-	// rule. Can currently be either "allow" or "deny()" where valid values
-	// for status are 403, 404, and 502.
+	// rule. Valid actions are "allow", "deny" and "goto_next".
 	Action string `json:"action,omitempty"`
 
 	// Description: An optional description for this resource.
@@ -12173,17 +12729,51 @@ func (s *FirewallPolicyRule) MarshalJSON() ([]byte, error) {
 // FirewallPolicyRuleMatcher: Represents a match condition that incoming
 // traffic is evaluated against. Exactly one field must be specified.
 type FirewallPolicyRuleMatcher struct {
+	// DestAddressGroups: Address groups which should be matched against the
+	// traffic destination. Maximum number of destination address groups is
+	// 10.
+	DestAddressGroups []string `json:"destAddressGroups,omitempty"`
+
+	// DestFqdns: Fully Qualified Domain Name (FQDN) which should be matched
+	// against traffic destination. Maximum number of destination fqdn
+	// allowed is 100.
+	DestFqdns []string `json:"destFqdns,omitempty"`
+
 	// DestIpRanges: CIDR IP address range. Maximum number of destination
 	// CIDR IP ranges allowed is 5000.
 	DestIpRanges []string `json:"destIpRanges,omitempty"`
+
+	// DestRegionCodes: Region codes whose IP addresses will be used to
+	// match for destination of traffic. Should be specified as 2 letter
+	// country code defined as per ISO 3166 alpha-2 country codes. ex."US"
+	// Maximum number of dest region codes allowed is 5000.
+	DestRegionCodes []string `json:"destRegionCodes,omitempty"`
+
+	// DestThreatIntelligences: Names of Network Threat Intelligence lists.
+	// The IPs in these lists will be matched against traffic destination.
+	DestThreatIntelligences []string `json:"destThreatIntelligences,omitempty"`
 
 	// Layer4Configs: Pairs of IP protocols and ports that the rule should
 	// match.
 	Layer4Configs []*FirewallPolicyRuleMatcherLayer4Config `json:"layer4Configs,omitempty"`
 
+	// SrcAddressGroups: Address groups which should be matched against the
+	// traffic source. Maximum number of source address groups is 10.
+	SrcAddressGroups []string `json:"srcAddressGroups,omitempty"`
+
+	// SrcFqdns: Fully Qualified Domain Name (FQDN) which should be matched
+	// against traffic source. Maximum number of source fqdn allowed is 100.
+	SrcFqdns []string `json:"srcFqdns,omitempty"`
+
 	// SrcIpRanges: CIDR IP address range. Maximum number of source CIDR IP
 	// ranges allowed is 5000.
 	SrcIpRanges []string `json:"srcIpRanges,omitempty"`
+
+	// SrcRegionCodes: Region codes whose IP addresses will be used to match
+	// for source of traffic. Should be specified as 2 letter country code
+	// defined as per ISO 3166 alpha-2 country codes. ex."US" Maximum number
+	// of source region codes allowed is 5000.
+	SrcRegionCodes []string `json:"srcRegionCodes,omitempty"`
 
 	// SrcSecureTags: List of secure tag values, which should be matched at
 	// the source of the traffic. For INGRESS rule, if all the srcSecureTag
@@ -12191,20 +12781,25 @@ type FirewallPolicyRuleMatcher struct {
 	// ignored. Maximum number of source tag values allowed is 256.
 	SrcSecureTags []*FirewallPolicyRuleSecureTag `json:"srcSecureTags,omitempty"`
 
-	// ForceSendFields is a list of field names (e.g. "DestIpRanges") to
-	// unconditionally include in API requests. By default, fields with
+	// SrcThreatIntelligences: Names of Network Threat Intelligence lists.
+	// The IPs in these lists will be matched against traffic source.
+	SrcThreatIntelligences []string `json:"srcThreatIntelligences,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "DestAddressGroups")
+	// to unconditionally include in API requests. By default, fields with
 	// empty or default values are omitted from API requests. However, any
 	// non-pointer, non-interface field appearing in ForceSendFields will be
 	// sent to the server regardless of whether the field is empty or not.
 	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "DestIpRanges") to include
-	// in API requests with the JSON null value. By default, fields with
-	// empty values are omitted from API requests. However, any field with
-	// an empty value appearing in NullFields will be sent to the server as
-	// null. It is an error if a field in this list has a non-empty value.
-	// This may be used to include null fields in Patch requests.
+	// NullFields is a list of field names (e.g. "DestAddressGroups") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
 	NullFields []string `json:"-"`
 }
 
@@ -12403,11 +12998,23 @@ type ForwardingRule struct {
 	// clients in the same region as the internal load balancer.
 	AllowGlobalAccess bool `json:"allowGlobalAccess,omitempty"`
 
+	// AllowPscGlobalAccess: This is used in PSC consumer ForwardingRule to
+	// control whether the PSC endpoint can be accessed from another region.
+	AllowPscGlobalAccess bool `json:"allowPscGlobalAccess,omitempty"`
+
 	// BackendService: Identifies the backend service to which the
 	// forwarding rule sends traffic. Required for Internal TCP/UDP Load
 	// Balancing and Network Load Balancing; must be omitted for all other
 	// load balancer types.
 	BackendService string `json:"backendService,omitempty"`
+
+	// BaseForwardingRule: [Output Only] The URL for the corresponding base
+	// Forwarding Rule. By base Forwarding Rule, we mean the Forwarding Rule
+	// that has the same IP address, protocol, and port settings with the
+	// current Forwarding Rule, but without sourceIPRanges specified. Always
+	// empty if the current Forwarding Rule does not have sourceIPRanges
+	// specified.
+	BaseForwardingRule string `json:"baseForwardingRule,omitempty"`
 
 	// CreationTimestamp: [Output Only] Creation timestamp in RFC3339 text
 	// format.
@@ -12513,9 +13120,10 @@ type ForwardingRule struct {
 	// Network: This field is not used for external load balancing. For
 	// Internal TCP/UDP Load Balancing, this field identifies the network
 	// that the load balanced IP should belong to for this Forwarding Rule.
-	// If this field is not specified, the default network will be used. For
-	// Private Service Connect forwarding rules that forward traffic to
-	// Google APIs, a network must be provided.
+	// If the subnetwork is specified, the network of the subnetwork will be
+	// used. If neither subnetwork nor this field is specified, the default
+	// network will be used. For Private Service Connect forwarding rules
+	// that forward traffic to Google APIs, a network must be provided.
 	Network string `json:"network,omitempty"`
 
 	// NetworkTier: This signifies the networking tier used for configuring
@@ -12620,6 +13228,15 @@ type ForwardingRule struct {
 	// for this Forwarding Rule. This field is only used for internal load
 	// balancing.
 	ServiceName string `json:"serviceName,omitempty"`
+
+	// SourceIpRanges: If not empty, this Forwarding Rule will only forward
+	// the traffic when the source IP address matches one of the IP
+	// addresses or CIDR ranges set here. Note that a Forwarding Rule can
+	// only have up to 64 source IP ranges, and this field can only be used
+	// with a regional Forwarding Rule whose scheme is EXTERNAL. Each
+	// source_ip_range entry should be either an IP address (for example,
+	// 1.2.3.4) or a CIDR range (for example, 1.2.3.0/24).
+	SourceIpRanges []string `json:"sourceIpRanges,omitempty"`
 
 	// Subnetwork: This field identifies the subnetwork that the load
 	// balanced IP should belong to for this Forwarding Rule, used in
@@ -12756,6 +13373,9 @@ type ForwardingRuleAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -12945,6 +13565,9 @@ type ForwardingRuleListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -13183,6 +13806,9 @@ type ForwardingRulesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -13360,6 +13986,43 @@ type GRPCHealthCheck struct {
 
 func (s *GRPCHealthCheck) MarshalJSON() ([]byte, error) {
 	type NoMethod GRPCHealthCheck
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type GlobalAddressesMoveRequest struct {
+	// Description: An optional destination address description if intended
+	// to be different from the source.
+	Description string `json:"description,omitempty"`
+
+	// DestinationAddress: The URL of the destination address to move to.
+	// This can be a full or partial URL. For example, the following are all
+	// valid URLs to a address: -
+	// https://www.googleapis.com/compute/v1/projects/project
+	// /global/addresses/address - projects/project/global/addresses/address
+	// Note that destination project must be different from the source
+	// project. So /global/addresses/address is not valid partial url.
+	DestinationAddress string `json:"destinationAddress,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Description") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Description") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *GlobalAddressesMoveRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod GlobalAddressesMoveRequest
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -13653,8 +14316,8 @@ type GuestOsFeature struct {
 	// commas to separate values. Set to one or more of the following
 	// values: - VIRTIO_SCSI_MULTIQUEUE - WINDOWS - MULTI_IP_SUBNET -
 	// UEFI_COMPATIBLE - GVNIC - SEV_CAPABLE - SUSPEND_RESUME_COMPATIBLE -
-	// SEV_SNP_CAPABLE For more information, see Enabling guest operating
-	// system features.
+	// SEV_LIVE_MIGRATABLE - SEV_SNP_CAPABLE For more information, see
+	// Enabling guest operating system features.
 	//
 	// Possible values:
 	//   "FEATURE_TYPE_UNSPECIFIED"
@@ -13662,6 +14325,8 @@ type GuestOsFeature struct {
 	//   "MULTI_IP_SUBNET"
 	//   "SECURE_BOOT"
 	//   "SEV_CAPABLE"
+	//   "SEV_LIVE_MIGRATABLE"
+	//   "SEV_SNP_CAPABLE"
 	//   "UEFI_COMPATIBLE"
 	//   "VIRTIO_SCSI_MULTIQUEUE"
 	//   "WINDOWS"
@@ -13978,12 +14643,12 @@ func (s *HTTPSHealthCheck) MarshalJSON() ([]byte, error) {
 // (/compute/docs/reference/rest/v1/regionHealthChecks) Internal HTTP(S)
 // load balancers must use regional health checks
 // (`compute.v1.regionHealthChecks`). Traffic Director must use global
-// health checks (`compute.v1.HealthChecks`). Internal TCP/UDP load
+// health checks (`compute.v1.healthChecks`). Internal TCP/UDP load
 // balancers can use either regional or global health checks
-// (`compute.v1.regionHealthChecks` or `compute.v1.HealthChecks`).
+// (`compute.v1.regionHealthChecks` or `compute.v1.healthChecks`).
 // External HTTP(S), TCP proxy, and SSL proxy load balancers as well as
 // managed instance group auto-healing must use global health checks
-// (`compute.v1.HealthChecks`). Backend service-based network load
+// (`compute.v1.healthChecks`). Backend service-based network load
 // balancers must use regional health checks
 // (`compute.v1.regionHealthChecks`). Target pool-based network load
 // balancers must use legacy HTTP health checks
@@ -14178,6 +14843,9 @@ type HealthCheckListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -14584,6 +15252,9 @@ type HealthCheckServicesListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -14775,6 +15446,9 @@ type HealthChecksAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -14942,6 +15616,9 @@ type HealthChecksScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -15061,7 +15738,7 @@ type HealthStatus struct {
 	// instance.
 	ForwardingRuleIp string `json:"forwardingRuleIp,omitempty"`
 
-	// HealthState: Health state of the instance.
+	// HealthState: Health state of the IPv4 address of the instance.
 	//
 	// Possible values:
 	//   "HEALTHY"
@@ -15146,10 +15823,10 @@ type HealthStatusForNetworkEndpoint struct {
 	// the health checks configured.
 	//
 	// Possible values:
-	//   "DRAINING"
-	//   "HEALTHY"
-	//   "UNHEALTHY"
-	//   "UNKNOWN"
+	//   "DRAINING" - Endpoint is being drained.
+	//   "HEALTHY" - Endpoint is healthy.
+	//   "UNHEALTHY" - Endpoint is unhealthy.
+	//   "UNKNOWN" - Health status of the endpoint is unknown.
 	HealthState string `json:"healthState,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "BackendService") to
@@ -15645,6 +16322,7 @@ type HttpHealthCheck struct {
 
 	// RequestPath: The request path of the HTTP health check request. The
 	// default value is /. This field does not support query parameters.
+	// Must comply with RFC3986.
 	RequestPath string `json:"requestPath,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for the resource.
@@ -15770,6 +16448,9 @@ type HttpHealthCheckListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -16301,6 +16982,15 @@ type HttpRouteRuleMatch struct {
 	// validateForProxyless field set to true.
 	MetadataFilters []*MetadataFilter `json:"metadataFilters,omitempty"`
 
+	// PathTemplateMatch: If specified, the route is a pattern match
+	// expression that must match the :path header once the query string is
+	// removed. A pattern match allows you to match - The value must be
+	// between 1 and 1024 characters - The pattern must start with a leading
+	// slash ("/") - There may be no more than 5 operators in pattern
+	// Precisely one of prefix_match, full_path_match, regex_match or
+	// path_template_match must be set.
+	PathTemplateMatch string `json:"pathTemplateMatch,omitempty"`
+
 	// PrefixMatch: For satisfying the matchRule condition, the request's
 	// path must begin with the specified prefixMatch. prefixMatch must
 	// begin with a /. The value must be from 1 to 1024 characters. Only one
@@ -16395,7 +17085,7 @@ type HttpsHealthCheck struct {
 	Port int64 `json:"port,omitempty"`
 
 	// RequestPath: The request path of the HTTPS health check request. The
-	// default value is "/".
+	// default value is "/". Must comply with RFC3986.
 	RequestPath string `json:"requestPath,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for the resource.
@@ -16521,6 +17211,9 @@ type HttpsHealthCheckListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -16660,11 +17353,14 @@ type Image struct {
 	// (in GB).
 	DiskSizeGb int64 `json:"diskSizeGb,omitempty,string"`
 
-	// Family: The name of the image family to which this image belongs. You
-	// can create disks by specifying an image family instead of a specific
-	// image name. The image family always returns its latest image that is
-	// not deprecated. The name of the image family must comply with
-	// RFC1035.
+	// Family: The name of the image family to which this image belongs. The
+	// image family name can be from a publicly managed image family
+	// provided by Compute Engine, or from a custom image family you create.
+	// For example, centos-stream-9 is a publicly available image family.
+	// For more information, see Image family best practices. When creating
+	// disks, you can specify an image family instead of a specific image
+	// name. The image family always returns its latest image that is not
+	// deprecated. The name of the image family must comply with RFC1035.
 	Family string `json:"family,omitempty"`
 
 	// GuestOsFeatures: A list of features to enable on the guest operating
@@ -17004,6 +17700,9 @@ type ImageListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -17368,9 +18067,9 @@ type Instance struct {
 	// cycle.
 	//
 	// Possible values:
-	//   "DEPROVISIONING" - The Nanny is halted and we are performing tear
-	// down tasks like network deprogramming, releasing quota, IP, tearing
-	// down disks etc.
+	//   "DEPROVISIONING" - The instance is halted and we are performing
+	// tear down tasks like network deprogramming, releasing quota, IP,
+	// tearing down disks etc.
 	//   "PROVISIONING" - Resources are being allocated for the instance.
 	//   "REPAIRING" - The instance is in repair.
 	//   "RUNNING" - The instance is running.
@@ -17516,6 +18215,9 @@ type InstanceAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -17879,6 +18581,9 @@ type InstanceGroupAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -18069,6 +18774,9 @@ type InstanceGroupListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -18512,6 +19220,9 @@ type InstanceGroupManagerAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -18623,13 +19334,14 @@ type InstanceGroupManagerAutoHealingPolicy struct {
 	// HealthCheck: The URL for the health check that signals autohealing.
 	HealthCheck string `json:"healthCheck,omitempty"`
 
-	// InitialDelaySec: The number of seconds that the managed instance
-	// group waits before it applies autohealing policies to new instances
-	// or recently recreated instances. This initial delay allows instances
-	// to initialize and run their startup scripts before the instance group
-	// determines that they are UNHEALTHY. This prevents the managed
-	// instance group from recreating its instances prematurely. This value
-	// must be from range [0, 3600].
+	// InitialDelaySec: The initial delay is the number of seconds that a
+	// new VM takes to initialize and run its startup script. During a VM's
+	// initial delay period, the MIG ignores unsuccessful health checks
+	// because the VM might be in the startup process. This prevents the MIG
+	// from prematurely recreating a VM. If the health check receives a
+	// healthy response during the initial delay, it indicates that the
+	// startup process is complete and the VM is ready. The value of initial
+	// delay must be between 0 and 3600 seconds. The default value is 0.
 	InitialDelaySec int64 `json:"initialDelaySec,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "HealthCheck") to
@@ -18740,6 +19452,9 @@ type InstanceGroupManagerListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -19300,7 +20015,9 @@ func (s *InstanceGroupManagersCreateInstancesRequest) MarshalJSON() ([]byte, err
 type InstanceGroupManagersDeleteInstancesRequest struct {
 	// Instances: The URLs of one or more instances to delete. This can be a
 	// full URL or a partial URL, such as
-	// zones/[ZONE]/instances/[INSTANCE_NAME].
+	// zones/[ZONE]/instances/[INSTANCE_NAME]. Queued instances do not have
+	// URL and can be deleted only by name. One cannot specify both URLs and
+	// names in a single request.
 	Instances []string `json:"instances,omitempty"`
 
 	// SkipInstancesOnValidationError: Specifies whether the request should
@@ -19518,6 +20235,9 @@ type InstanceGroupManagersListPerInstanceConfigsRespWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -19749,6 +20469,9 @@ type InstanceGroupManagersScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -20069,6 +20792,9 @@ type InstanceGroupsListInstancesWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -20302,6 +21028,9 @@ type InstanceGroupsScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -20528,6 +21257,9 @@ type InstanceListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -20718,6 +21450,9 @@ type InstanceListReferrersWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -21250,6 +21985,10 @@ type InstanceTemplate struct {
 	// Properties: The instance properties for this instance template.
 	Properties *InstanceProperties `json:"properties,omitempty"`
 
+	// Region: [Output Only] URL of the region where the instance template
+	// resides. Only applicable for regional resources.
+	Region string `json:"region,omitempty"`
+
 	// SelfLink: [Output Only] The URL for this instance template. The
 	// server defines this URL.
 	SelfLink string `json:"selfLink,omitempty"`
@@ -21289,6 +22028,199 @@ type InstanceTemplate struct {
 
 func (s *InstanceTemplate) MarshalJSON() ([]byte, error) {
 	type NoMethod InstanceTemplate
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// InstanceTemplateAggregatedList: Contains a list of
+// InstanceTemplatesScopedList.
+type InstanceTemplateAggregatedList struct {
+	// Id: [Output Only] Unique identifier for the resource; defined by the
+	// server.
+	Id string `json:"id,omitempty"`
+
+	// Items: A list of InstanceTemplatesScopedList resources.
+	Items map[string]InstanceTemplatesScopedList `json:"items,omitempty"`
+
+	// Kind: Type of resource.
+	Kind string `json:"kind,omitempty"`
+
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
+	NextPageToken string `json:"nextPageToken,omitempty"`
+
+	// SelfLink: [Output Only] Server-defined URL for this resource.
+	SelfLink string `json:"selfLink,omitempty"`
+
+	// Warning: [Output Only] Informational warning message.
+	Warning *InstanceTemplateAggregatedListWarning `json:"warning,omitempty"`
+
+	// ServerResponse contains the HTTP response code and headers from the
+	// server.
+	googleapi.ServerResponse `json:"-"`
+
+	// ForceSendFields is a list of field names (e.g. "Id") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Id") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *InstanceTemplateAggregatedList) MarshalJSON() ([]byte, error) {
+	type NoMethod InstanceTemplateAggregatedList
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// InstanceTemplateAggregatedListWarning: [Output Only] Informational
+// warning message.
+type InstanceTemplateAggregatedListWarning struct {
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
+	//
+	// Possible values:
+	//   "CLEANUP_FAILED" - Warning about failed cleanup of transient
+	// changes made by a failed operation.
+	//   "DEPRECATED_RESOURCE_USED" - A link to a deprecated resource was
+	// created.
+	//   "DEPRECATED_TYPE_USED" - When deploying and at least one of the
+	// resources has a type marked as deprecated
+	//   "DISK_SIZE_LARGER_THAN_IMAGE_SIZE" - The user created a boot disk
+	// that is larger than image size.
+	//   "EXPERIMENTAL_TYPE_USED" - When deploying and at least one of the
+	// resources has a type marked as experimental
+	//   "EXTERNAL_API_WARNING" - Warning that is present in an external api
+	// call
+	//   "FIELD_VALUE_OVERRIDEN" - Warning that value of a field has been
+	// overridden. Deprecated unused field.
+	//   "INJECTED_KERNELS_DEPRECATED" - The operation involved use of an
+	// injected kernel, which is deprecated.
+	//   "INVALID_HEALTH_CHECK_FOR_DYNAMIC_WIEGHTED_LB" - A WEIGHTED_MAGLEV
+	// backend service is associated with a health check that is not of type
+	// HTTP/HTTPS/HTTP2.
+	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
+	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
+	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
+	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
+	// not assigned to an instance on the network.
+	//   "NEXT_HOP_CANNOT_IP_FORWARD" - The route's next hop instance cannot
+	// ip forward.
+	//   "NEXT_HOP_INSTANCE_HAS_NO_IPV6_INTERFACE" - The route's
+	// nextHopInstance URL refers to an instance that does not have an ipv6
+	// interface on the same network as the route.
+	//   "NEXT_HOP_INSTANCE_NOT_FOUND" - The route's nextHopInstance URL
+	// refers to an instance that does not exist.
+	//   "NEXT_HOP_INSTANCE_NOT_ON_NETWORK" - The route's nextHopInstance
+	// URL refers to an instance that is not on the same network as the
+	// route.
+	//   "NEXT_HOP_NOT_RUNNING" - The route's next hop instance does not
+	// have a status of RUNNING.
+	//   "NOT_CRITICAL_ERROR" - Error which is not critical. We decided to
+	// continue the process despite the mentioned error.
+	//   "NO_RESULTS_ON_PAGE" - No results are present on a particular list
+	// page.
+	//   "PARTIAL_SUCCESS" - Success is reported, but some results may be
+	// missing due to errors
+	//   "REQUIRED_TOS_AGREEMENT" - The user attempted to use a resource
+	// that requires a TOS they have not accepted.
+	//   "RESOURCE_IN_USE_BY_OTHER_RESOURCE_WARNING" - Warning that a
+	// resource is in use.
+	//   "RESOURCE_NOT_DELETED" - One or more of the resources set to
+	// auto-delete could not be deleted because they were in use.
+	//   "SCHEMA_VALIDATION_IGNORED" - When a resource schema validation is
+	// ignored.
+	//   "SINGLE_INSTANCE_PROPERTY_TEMPLATE" - Instance template used in
+	// instance group manager is valid as such, but its application does not
+	// make a lot of sense, because it allows only single instance in
+	// instance group.
+	//   "UNDECLARED_PROPERTIES" - When undeclared properties in the schema
+	// are present
+	//   "UNREACHABLE" - A given scope cannot be reached.
+	Code string `json:"code,omitempty"`
+
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example: "data": [ { "key": "scope", "value": "zones/us-east1-d"
+	// }
+	Data []*InstanceTemplateAggregatedListWarningData `json:"data,omitempty"`
+
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
+	Message string `json:"message,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Code") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Code") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *InstanceTemplateAggregatedListWarning) MarshalJSON() ([]byte, error) {
+	type NoMethod InstanceTemplateAggregatedListWarning
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type InstanceTemplateAggregatedListWarningData struct {
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
+	Key string `json:"key,omitempty"`
+
+	// Value: [Output Only] A warning data value corresponding to the key.
+	Value string `json:"value,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Key") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Key") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *InstanceTemplateAggregatedListWarningData) MarshalJSON() ([]byte, error) {
+	type NoMethod InstanceTemplateAggregatedListWarningData
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -21376,6 +22308,9 @@ type InstanceTemplateListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -21483,6 +22418,179 @@ func (s *InstanceTemplateListWarningData) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+type InstanceTemplatesScopedList struct {
+	// InstanceTemplates: [Output Only] A list of instance templates that
+	// are contained within the specified project and zone.
+	InstanceTemplates []*InstanceTemplate `json:"instanceTemplates,omitempty"`
+
+	// Warning: [Output Only] An informational warning that replaces the
+	// list of instance templates when the list is empty.
+	Warning *InstanceTemplatesScopedListWarning `json:"warning,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "InstanceTemplates")
+	// to unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "InstanceTemplates") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *InstanceTemplatesScopedList) MarshalJSON() ([]byte, error) {
+	type NoMethod InstanceTemplatesScopedList
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// InstanceTemplatesScopedListWarning: [Output Only] An informational
+// warning that replaces the list of instance templates when the list is
+// empty.
+type InstanceTemplatesScopedListWarning struct {
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
+	//
+	// Possible values:
+	//   "CLEANUP_FAILED" - Warning about failed cleanup of transient
+	// changes made by a failed operation.
+	//   "DEPRECATED_RESOURCE_USED" - A link to a deprecated resource was
+	// created.
+	//   "DEPRECATED_TYPE_USED" - When deploying and at least one of the
+	// resources has a type marked as deprecated
+	//   "DISK_SIZE_LARGER_THAN_IMAGE_SIZE" - The user created a boot disk
+	// that is larger than image size.
+	//   "EXPERIMENTAL_TYPE_USED" - When deploying and at least one of the
+	// resources has a type marked as experimental
+	//   "EXTERNAL_API_WARNING" - Warning that is present in an external api
+	// call
+	//   "FIELD_VALUE_OVERRIDEN" - Warning that value of a field has been
+	// overridden. Deprecated unused field.
+	//   "INJECTED_KERNELS_DEPRECATED" - The operation involved use of an
+	// injected kernel, which is deprecated.
+	//   "INVALID_HEALTH_CHECK_FOR_DYNAMIC_WIEGHTED_LB" - A WEIGHTED_MAGLEV
+	// backend service is associated with a health check that is not of type
+	// HTTP/HTTPS/HTTP2.
+	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
+	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
+	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
+	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
+	// not assigned to an instance on the network.
+	//   "NEXT_HOP_CANNOT_IP_FORWARD" - The route's next hop instance cannot
+	// ip forward.
+	//   "NEXT_HOP_INSTANCE_HAS_NO_IPV6_INTERFACE" - The route's
+	// nextHopInstance URL refers to an instance that does not have an ipv6
+	// interface on the same network as the route.
+	//   "NEXT_HOP_INSTANCE_NOT_FOUND" - The route's nextHopInstance URL
+	// refers to an instance that does not exist.
+	//   "NEXT_HOP_INSTANCE_NOT_ON_NETWORK" - The route's nextHopInstance
+	// URL refers to an instance that is not on the same network as the
+	// route.
+	//   "NEXT_HOP_NOT_RUNNING" - The route's next hop instance does not
+	// have a status of RUNNING.
+	//   "NOT_CRITICAL_ERROR" - Error which is not critical. We decided to
+	// continue the process despite the mentioned error.
+	//   "NO_RESULTS_ON_PAGE" - No results are present on a particular list
+	// page.
+	//   "PARTIAL_SUCCESS" - Success is reported, but some results may be
+	// missing due to errors
+	//   "REQUIRED_TOS_AGREEMENT" - The user attempted to use a resource
+	// that requires a TOS they have not accepted.
+	//   "RESOURCE_IN_USE_BY_OTHER_RESOURCE_WARNING" - Warning that a
+	// resource is in use.
+	//   "RESOURCE_NOT_DELETED" - One or more of the resources set to
+	// auto-delete could not be deleted because they were in use.
+	//   "SCHEMA_VALIDATION_IGNORED" - When a resource schema validation is
+	// ignored.
+	//   "SINGLE_INSTANCE_PROPERTY_TEMPLATE" - Instance template used in
+	// instance group manager is valid as such, but its application does not
+	// make a lot of sense, because it allows only single instance in
+	// instance group.
+	//   "UNDECLARED_PROPERTIES" - When undeclared properties in the schema
+	// are present
+	//   "UNREACHABLE" - A given scope cannot be reached.
+	Code string `json:"code,omitempty"`
+
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example: "data": [ { "key": "scope", "value": "zones/us-east1-d"
+	// }
+	Data []*InstanceTemplatesScopedListWarningData `json:"data,omitempty"`
+
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
+	Message string `json:"message,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Code") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Code") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *InstanceTemplatesScopedListWarning) MarshalJSON() ([]byte, error) {
+	type NoMethod InstanceTemplatesScopedListWarning
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type InstanceTemplatesScopedListWarningData struct {
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
+	Key string `json:"key,omitempty"`
+
+	// Value: [Output Only] A warning data value corresponding to the key.
+	Value string `json:"value,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Key") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Key") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *InstanceTemplatesScopedListWarningData) MarshalJSON() ([]byte, error) {
+	type NoMethod InstanceTemplatesScopedListWarningData
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 type InstanceWithNamedPorts struct {
 	// Instance: [Output Only] The URL of the instance.
 	Instance string `json:"instance,omitempty"`
@@ -21494,9 +22602,9 @@ type InstanceWithNamedPorts struct {
 	// Status: [Output Only] The status of the instance.
 	//
 	// Possible values:
-	//   "DEPROVISIONING" - The Nanny is halted and we are performing tear
-	// down tasks like network deprogramming, releasing quota, IP, tearing
-	// down disks etc.
+	//   "DEPROVISIONING" - The instance is halted and we are performing
+	// tear down tasks like network deprogramming, releasing quota, IP,
+	// tearing down disks etc.
 	//   "PROVISIONING" - Resources are being allocated for the instance.
 	//   "REPAIRING" - The instance is in repair.
 	//   "RUNNING" - The instance is running.
@@ -21732,6 +22840,9 @@ type InstancesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -21958,6 +23069,39 @@ func (s *InstancesSetMinCpuPlatformRequest) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+type InstancesSetNameRequest struct {
+	// CurrentName: The current name of this resource, used to prevent
+	// conflicts. Provide the latest name when making a request to change
+	// name.
+	CurrentName string `json:"currentName,omitempty"`
+
+	// Name: The name to be applied to the instance. Needs to be RFC 1035
+	// compliant.
+	Name string `json:"name,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "CurrentName") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "CurrentName") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *InstancesSetNameRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod InstancesSetNameRequest
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 type InstancesSetServiceAccountRequest struct {
 	// Email: Email address of the service account.
 	Email string `json:"email,omitempty"`
@@ -22055,9 +23199,9 @@ func (s *Int64RangeMatch) MarshalJSON() ([]byte, error) {
 }
 
 // Interconnect: Represents an Interconnect resource. An Interconnect
-// resource is a dedicated connection between the GCP network and your
-// on-premises network. For more information, read the Dedicated
-// Interconnect Overview.
+// resource is a dedicated connection between the Google Cloud network
+// and your on-premises network. For more information, read the
+// Dedicated Interconnect Overview.
 type Interconnect struct {
 	// AdminEnabled: Administrative status of the interconnect. When this is
 	// set to true, the Interconnect is functional and can carry traffic.
@@ -22122,6 +23266,21 @@ type Interconnect struct {
 	// for interconnects.
 	Kind string `json:"kind,omitempty"`
 
+	// LabelFingerprint: A fingerprint for the labels being applied to this
+	// Interconnect, which is essentially a hash of the labels set used for
+	// optimistic locking. The fingerprint is initially generated by Compute
+	// Engine and changes after every request to modify or update labels.
+	// You must always provide an up-to-date fingerprint hash in order to
+	// update or change labels, otherwise the request will fail with error
+	// 412 conditionNotMet. To see the latest fingerprint, make a get()
+	// request to retrieve an Interconnect.
+	LabelFingerprint string `json:"labelFingerprint,omitempty"`
+
+	// Labels: Labels for this resource. These can only be added or modified
+	// by the setLabels method. Each label key/value pair must comply with
+	// RFC1035. Label values may be empty.
+	Labels map[string]string `json:"labels,omitempty"`
+
 	// LinkType: Type of link requested, which can take one of the following
 	// values: - LINK_TYPE_ETHERNET_10G_LR: A 10G Ethernet with LR optics -
 	// LINK_TYPE_ETHERNET_100G_LR: A 100G Ethernet with LR optics. Note that
@@ -22182,13 +23341,16 @@ type Interconnect struct {
 	// provisioned in this interconnect.
 	ProvisionedLinkCount int64 `json:"provisionedLinkCount,omitempty"`
 
+	// RemoteLocation: Indicates that this is a Cross-Cloud Interconnect.
+	// This field specifies the location outside of Google's network that
+	// the interconnect is connected to.
+	RemoteLocation string `json:"remoteLocation,omitempty"`
+
 	// RequestedLinkCount: Target number of physical links in the link
 	// bundle, as requested by the customer.
 	RequestedLinkCount int64 `json:"requestedLinkCount,omitempty"`
 
-	// SatisfiesPzs: [Output Only] Set to true if the resource satisfies the
-	// zone separation organization policy constraints and false otherwise.
-	// Defaults to false if the field is not present.
+	// SatisfiesPzs: [Output Only] Reserved for future use.
 	SatisfiesPzs bool `json:"satisfiesPzs,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for the resource.
@@ -22299,6 +23461,11 @@ type InterconnectAttachment struct {
 	// CloudRouterIpv6InterfaceId: This field is not available.
 	CloudRouterIpv6InterfaceId string `json:"cloudRouterIpv6InterfaceId,omitempty"`
 
+	// ConfigurationConstraints: [Output Only] Constraints for this
+	// attachment, if any. The attachment does not work if these constraints
+	// are not met.
+	ConfigurationConstraints *InterconnectAttachmentConfigurationConstraints `json:"configurationConstraints,omitempty"`
+
 	// CreationTimestamp: [Output Only] Creation timestamp in RFC3339 text
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
@@ -22391,13 +23558,27 @@ type InterconnectAttachment struct {
 	// attachment. If this field is not specified when creating the VLAN
 	// attachment, then later on when creating an HA VPN gateway on this
 	// VLAN attachment, the HA VPN gateway's IP address is allocated from
-	// the regional external IP address pool. Not currently available
-	// publicly.
+	// the regional external IP address pool.
 	IpsecInternalAddresses []string `json:"ipsecInternalAddresses,omitempty"`
 
 	// Kind: [Output Only] Type of the resource. Always
 	// compute#interconnectAttachment for interconnect attachments.
 	Kind string `json:"kind,omitempty"`
+
+	// LabelFingerprint: A fingerprint for the labels being applied to this
+	// InterconnectAttachment, which is essentially a hash of the labels set
+	// used for optimistic locking. The fingerprint is initially generated
+	// by Compute Engine and changes after every request to modify or update
+	// labels. You must always provide an up-to-date fingerprint hash in
+	// order to update or change labels, otherwise the request will fail
+	// with error 412 conditionNotMet. To see the latest fingerprint, make a
+	// get() request to retrieve an InterconnectAttachment.
+	LabelFingerprint string `json:"labelFingerprint,omitempty"`
+
+	// Labels: Labels for this resource. These can only be added or modified
+	// by the setLabels method. Each label key/value pair must comply with
+	// RFC1035. Label values may be empty.
+	Labels map[string]string `json:"labels,omitempty"`
 
 	// Mtu: Maximum Transmission Unit (MTU), in bytes, of packets passing
 	// through this interconnect attachment. Only 1440 and 1500 are allowed.
@@ -22454,15 +23635,21 @@ type InterconnectAttachment struct {
 	// body.
 	Region string `json:"region,omitempty"`
 
+	// RemoteService: [Output Only] If the attachment is on a Cross-Cloud
+	// Interconnect connection, this field contains the interconnect's
+	// remote location service provider. Example values: "Amazon Web
+	// Services" "Microsoft Azure". The field is set only for attachments on
+	// Cross-Cloud Interconnect connections. Its value is copied from the
+	// InterconnectRemoteLocation remoteService field.
+	RemoteService string `json:"remoteService,omitempty"`
+
 	// Router: URL of the Cloud Router to be used for dynamic routing. This
 	// router must be in the same region as this InterconnectAttachment. The
 	// InterconnectAttachment will automatically connect the Interconnect to
 	// the network & region within which the Cloud Router is configured.
 	Router string `json:"router,omitempty"`
 
-	// SatisfiesPzs: [Output Only] Set to true if the resource satisfies the
-	// zone separation organization policy constraints and false otherwise.
-	// Defaults to false if the field is not present.
+	// SatisfiesPzs: [Output Only] Reserved for future use.
 	SatisfiesPzs bool `json:"satisfiesPzs,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for the resource.
@@ -22519,6 +23706,16 @@ type InterconnectAttachment struct {
 	// yet, because turnup is not complete.
 	State string `json:"state,omitempty"`
 
+	// SubnetLength: Length of the IPv4 subnet mask. Allowed values: - 29
+	// (default) - 30 The default value is 29, except for Cross-Cloud
+	// Interconnect connections that use an InterconnectRemoteLocation with
+	// a constraints.subnetLengthRange.min equal to 30. For example,
+	// connections that use an Azure remote location fall into this
+	// category. In these cases, the default value is 30, and requesting 29
+	// returns an error. Where both 29 and 30 are allowed, 29 is preferred,
+	// because it gives Google Cloud Support more debugging visibility.
+	SubnetLength int64 `json:"subnetLength,omitempty"`
+
 	// Type: The type of interconnect attachment this is, which can take one
 	// of the following values: - DEDICATED: an attachment to a Dedicated
 	// Interconnect. - PARTNER: an attachment to a Partner Interconnect,
@@ -22534,7 +23731,7 @@ type InterconnectAttachment struct {
 	Type string `json:"type,omitempty"`
 
 	// VlanTag8021q: The IEEE 802.1Q VLAN tag for this attachment, in the
-	// range 2-4094. Only specified at creation time.
+	// range 2-4093. Only specified at creation time.
 	VlanTag8021q int64 `json:"vlanTag8021q,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -22650,6 +23847,9 @@ type InterconnectAttachmentAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -22757,6 +23957,87 @@ func (s *InterconnectAttachmentAggregatedListWarningData) MarshalJSON() ([]byte,
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+type InterconnectAttachmentConfigurationConstraints struct {
+	// BgpMd5: [Output Only] Whether the attachment's BGP session
+	// requires/allows/disallows BGP MD5 authentication. This can take one
+	// of the following values: MD5_OPTIONAL, MD5_REQUIRED, MD5_UNSUPPORTED.
+	// For example, a Cross-Cloud Interconnect connection to a remote cloud
+	// provider that requires BGP MD5 authentication has the
+	// interconnectRemoteLocation
+	// attachment_configuration_constraints.bgp_md5 field set to
+	// MD5_REQUIRED, and that property is propagated to the attachment.
+	// Similarly, if BGP MD5 is MD5_UNSUPPORTED, an error is returned if MD5
+	// is requested.
+	//
+	// Possible values:
+	//   "MD5_OPTIONAL" - MD5_OPTIONAL: BGP MD5 authentication is supported
+	// and can optionally be configured.
+	//   "MD5_REQUIRED" - MD5_REQUIRED: BGP MD5 authentication must be
+	// configured.
+	//   "MD5_UNSUPPORTED" - MD5_UNSUPPORTED: BGP MD5 authentication must
+	// not be configured
+	BgpMd5 string `json:"bgpMd5,omitempty"`
+
+	// BgpPeerAsnRanges: [Output Only] List of ASN ranges that the remote
+	// location is known to support. Formatted as an array of inclusive
+	// ranges {min: min-value, max: max-value}. For example, [{min: 123,
+	// max: 123}, {min: 64512, max: 65534}] allows the peer ASN to be 123 or
+	// anything in the range 64512-65534. This field is only advisory.
+	// Although the API accepts other ranges, these are the ranges that we
+	// recommend.
+	BgpPeerAsnRanges []*InterconnectAttachmentConfigurationConstraintsBgpPeerASNRange `json:"bgpPeerAsnRanges,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "BgpMd5") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "BgpMd5") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *InterconnectAttachmentConfigurationConstraints) MarshalJSON() ([]byte, error) {
+	type NoMethod InterconnectAttachmentConfigurationConstraints
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type InterconnectAttachmentConfigurationConstraintsBgpPeerASNRange struct {
+	Max int64 `json:"max,omitempty"`
+
+	Min int64 `json:"min,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Max") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Max") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *InterconnectAttachmentConfigurationConstraintsBgpPeerASNRange) MarshalJSON() ([]byte, error) {
+	type NoMethod InterconnectAttachmentConfigurationConstraintsBgpPeerASNRange
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // InterconnectAttachmentList: Response to the list request, and
 // contains a list of interconnect attachments.
 type InterconnectAttachmentList struct {
@@ -22842,6 +24123,9 @@ type InterconnectAttachmentListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -23089,6 +24373,9 @@ type InterconnectAttachmentsScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -23580,6 +24867,9 @@ type InterconnectListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -23775,9 +25065,7 @@ type InterconnectLocation struct {
 	// Interconnects.
 	Status string `json:"status,omitempty"`
 
-	// SupportsPzs: [Output Only] Set to true for locations that support
-	// physical zone separation. Defaults to false if the field is not
-	// present.
+	// SupportsPzs: [Output Only] Reserved for future use.
 	SupportsPzs bool `json:"supportsPzs,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -23891,6 +25179,9 @@ type InterconnectLocationListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -24143,6 +25434,471 @@ type InterconnectOutageNotification struct {
 
 func (s *InterconnectOutageNotification) MarshalJSON() ([]byte, error) {
 	type NoMethod InterconnectOutageNotification
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// InterconnectRemoteLocation: Represents a Cross-Cloud Interconnect
+// Remote Location resource. You can use this resource to find remote
+// location details about an Interconnect attachment (VLAN).
+type InterconnectRemoteLocation struct {
+	// Address: [Output Only] The postal address of the Point of Presence,
+	// each line in the address is separated by a newline character.
+	Address string `json:"address,omitempty"`
+
+	// AttachmentConfigurationConstraints: [Output Only] Subset of fields
+	// from InterconnectAttachment's |configurationConstraints| field that
+	// apply to all attachments for this remote location.
+	AttachmentConfigurationConstraints *InterconnectAttachmentConfigurationConstraints `json:"attachmentConfigurationConstraints,omitempty"`
+
+	// City: [Output Only] Metropolitan area designator that indicates which
+	// city an interconnect is located. For example: "Chicago, IL",
+	// "Amsterdam, Netherlands".
+	City string `json:"city,omitempty"`
+
+	// Constraints: [Output Only] Constraints on the parameters for creating
+	// Cross-Cloud Interconnect and associated InterconnectAttachments.
+	Constraints *InterconnectRemoteLocationConstraints `json:"constraints,omitempty"`
+
+	// Continent: [Output Only] Continent for this location, which can take
+	// one of the following values: - AFRICA - ASIA_PAC - EUROPE -
+	// NORTH_AMERICA - SOUTH_AMERICA
+	//
+	// Possible values:
+	//   "AFRICA"
+	//   "ASIA_PAC"
+	//   "EUROPE"
+	//   "NORTH_AMERICA"
+	//   "SOUTH_AMERICA"
+	Continent string `json:"continent,omitempty"`
+
+	// CreationTimestamp: [Output Only] Creation timestamp in RFC3339 text
+	// format.
+	CreationTimestamp string `json:"creationTimestamp,omitempty"`
+
+	// Description: [Output Only] An optional description of the resource.
+	Description string `json:"description,omitempty"`
+
+	// FacilityProvider: [Output Only] The name of the provider for this
+	// facility (e.g., EQUINIX).
+	FacilityProvider string `json:"facilityProvider,omitempty"`
+
+	// FacilityProviderFacilityId: [Output Only] A provider-assigned
+	// Identifier for this facility (e.g., Ashburn-DC1).
+	FacilityProviderFacilityId string `json:"facilityProviderFacilityId,omitempty"`
+
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
+	Id uint64 `json:"id,omitempty,string"`
+
+	// Kind: [Output Only] Type of the resource. Always
+	// compute#interconnectRemoteLocation for interconnect remote locations.
+	Kind string `json:"kind,omitempty"`
+
+	// Lacp: [Output Only] Link Aggregation Control Protocol (LACP)
+	// constraints, which can take one of the following values:
+	// LACP_SUPPORTED, LACP_UNSUPPORTED
+	//
+	// Possible values:
+	//   "LACP_SUPPORTED" - LACP_SUPPORTED: LACP is supported, and enabled
+	// by default on the Cross-Cloud Interconnect.
+	//   "LACP_UNSUPPORTED" - LACP_UNSUPPORTED: LACP is not supported and is
+	// not be enabled on this port. GetDiagnostics shows
+	// bundleAggregationType as "static". GCP does not support LAGs without
+	// LACP, so requestedLinkCount must be 1.
+	Lacp string `json:"lacp,omitempty"`
+
+	// MaxLagSize100Gbps: [Output Only] The maximum number of 100 Gbps ports
+	// supported in a link aggregation group (LAG). When linkType is 100
+	// Gbps, requestedLinkCount cannot exceed max_lag_size_100_gbps.
+	MaxLagSize100Gbps int64 `json:"maxLagSize100Gbps,omitempty"`
+
+	// MaxLagSize10Gbps: [Output Only] The maximum number of 10 Gbps ports
+	// supported in a link aggregation group (LAG). When linkType is 10
+	// Gbps, requestedLinkCount cannot exceed max_lag_size_10_gbps.
+	MaxLagSize10Gbps int64 `json:"maxLagSize10Gbps,omitempty"`
+
+	// Name: [Output Only] Name of the resource.
+	Name string `json:"name,omitempty"`
+
+	// PeeringdbFacilityId: [Output Only] The peeringdb identifier for this
+	// facility (corresponding with a netfac type in peeringdb).
+	PeeringdbFacilityId string `json:"peeringdbFacilityId,omitempty"`
+
+	// PermittedConnections: [Output Only] Permitted connections.
+	PermittedConnections []*InterconnectRemoteLocationPermittedConnections `json:"permittedConnections,omitempty"`
+
+	// RemoteService: [Output Only] Indicates the service provider present
+	// at the remote location. Example values: "Amazon Web Services",
+	// "Microsoft Azure".
+	RemoteService string `json:"remoteService,omitempty"`
+
+	// SelfLink: [Output Only] Server-defined URL for the resource.
+	SelfLink string `json:"selfLink,omitempty"`
+
+	// Status: [Output Only] The status of this InterconnectRemoteLocation,
+	// which can take one of the following values: - CLOSED: The
+	// InterconnectRemoteLocation is closed and is unavailable for
+	// provisioning new Cross-Cloud Interconnects. - AVAILABLE: The
+	// InterconnectRemoteLocation is available for provisioning new
+	// Cross-Cloud Interconnects.
+	//
+	// Possible values:
+	//   "AVAILABLE" - The InterconnectRemoteLocation is available for
+	// provisioning new Cross-Cloud Interconnects.
+	//   "CLOSED" - The InterconnectRemoteLocation is closed for
+	// provisioning new Cross-Cloud Interconnects.
+	Status string `json:"status,omitempty"`
+
+	// ServerResponse contains the HTTP response code and headers from the
+	// server.
+	googleapi.ServerResponse `json:"-"`
+
+	// ForceSendFields is a list of field names (e.g. "Address") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Address") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *InterconnectRemoteLocation) MarshalJSON() ([]byte, error) {
+	type NoMethod InterconnectRemoteLocation
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type InterconnectRemoteLocationConstraints struct {
+	// PortPairRemoteLocation: [Output Only] Port pair remote location
+	// constraints, which can take one of the following values:
+	// PORT_PAIR_UNCONSTRAINED_REMOTE_LOCATION,
+	// PORT_PAIR_MATCHING_REMOTE_LOCATION. GCP's API refers only to
+	// individual ports, but the UI uses this field when ordering a pair of
+	// ports, to prevent users from accidentally ordering something that is
+	// incompatible with their cloud provider. Specifically, when ordering a
+	// redundant pair of Cross-Cloud Interconnect ports, and one of them
+	// uses a remote location with portPairMatchingRemoteLocation set to
+	// matching, the UI requires that both ports use the same remote
+	// location.
+	//
+	// Possible values:
+	//   "PORT_PAIR_MATCHING_REMOTE_LOCATION" - If
+	// PORT_PAIR_MATCHING_REMOTE_LOCATION, the remote cloud provider
+	// allocates ports in pairs, and the user should choose the same remote
+	// location for both ports.
+	//   "PORT_PAIR_UNCONSTRAINED_REMOTE_LOCATION" - If
+	// PORT_PAIR_UNCONSTRAINED_REMOTE_LOCATION, a user may opt to provision
+	// a redundant pair of Cross-Cloud Interconnects using two different
+	// remote locations in the same city.
+	PortPairRemoteLocation string `json:"portPairRemoteLocation,omitempty"`
+
+	// PortPairVlan: [Output Only] Port pair VLAN constraints, which can
+	// take one of the following values: PORT_PAIR_UNCONSTRAINED_VLAN,
+	// PORT_PAIR_MATCHING_VLAN
+	//
+	// Possible values:
+	//   "PORT_PAIR_MATCHING_VLAN" - If PORT_PAIR_MATCHING_VLAN, the
+	// Interconnect for this attachment is part of a pair of ports that
+	// should have matching VLAN allocations. This occurs with Cross-Cloud
+	// Interconnect to Azure remote locations. While GCP's API does not
+	// explicitly group pairs of ports, the UI uses this field to ensure
+	// matching VLAN ids when configuring a redundant VLAN pair.
+	//   "PORT_PAIR_UNCONSTRAINED_VLAN" - PORT_PAIR_UNCONSTRAINED_VLAN means
+	// there is no constraint.
+	PortPairVlan string `json:"portPairVlan,omitempty"`
+
+	// SubnetLengthRange: [Output Only] [min-length, max-length] The minimum
+	// and maximum value (inclusive) for the IPv4 subnet length. For
+	// example, an interconnectRemoteLocation for Azure has {min: 30, max:
+	// 30} because Azure requires /30 subnets. This range specifies the
+	// values supported by both cloud providers. Interconnect currently
+	// supports /29 and /30 IPv4 subnet lengths. If a remote cloud has no
+	// constraint on IPv4 subnet length, the range would thus be {min: 29,
+	// max: 30}.
+	SubnetLengthRange *InterconnectRemoteLocationConstraintsSubnetLengthRange `json:"subnetLengthRange,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g.
+	// "PortPairRemoteLocation") to unconditionally include in API requests.
+	// By default, fields with empty or default values are omitted from API
+	// requests. However, any non-pointer, non-interface field appearing in
+	// ForceSendFields will be sent to the server regardless of whether the
+	// field is empty or not. This may be used to include empty fields in
+	// Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "PortPairRemoteLocation")
+	// to include in API requests with the JSON null value. By default,
+	// fields with empty values are omitted from API requests. However, any
+	// field with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *InterconnectRemoteLocationConstraints) MarshalJSON() ([]byte, error) {
+	type NoMethod InterconnectRemoteLocationConstraints
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type InterconnectRemoteLocationConstraintsSubnetLengthRange struct {
+	Max int64 `json:"max,omitempty"`
+
+	Min int64 `json:"min,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Max") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Max") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *InterconnectRemoteLocationConstraintsSubnetLengthRange) MarshalJSON() ([]byte, error) {
+	type NoMethod InterconnectRemoteLocationConstraintsSubnetLengthRange
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// InterconnectRemoteLocationList: Response to the list request, and
+// contains a list of interconnect remote locations.
+type InterconnectRemoteLocationList struct {
+	// Id: [Output Only] Unique identifier for the resource; defined by the
+	// server.
+	Id string `json:"id,omitempty"`
+
+	// Items: A list of InterconnectRemoteLocation resources.
+	Items []*InterconnectRemoteLocation `json:"items,omitempty"`
+
+	// Kind: [Output Only] Type of resource. Always
+	// compute#interconnectRemoteLocationList for lists of interconnect
+	// remote locations.
+	Kind string `json:"kind,omitempty"`
+
+	// NextPageToken: [Output Only] This token lets you get the next page of
+	// results for list requests. If the number of results is larger than
+	// maxResults, use the nextPageToken as a value for the query parameter
+	// pageToken in the next list request. Subsequent list requests will
+	// have their own nextPageToken to continue paging through the results.
+	NextPageToken string `json:"nextPageToken,omitempty"`
+
+	// SelfLink: [Output Only] Server-defined URL for this resource.
+	SelfLink string `json:"selfLink,omitempty"`
+
+	// Warning: [Output Only] Informational warning message.
+	Warning *InterconnectRemoteLocationListWarning `json:"warning,omitempty"`
+
+	// ServerResponse contains the HTTP response code and headers from the
+	// server.
+	googleapi.ServerResponse `json:"-"`
+
+	// ForceSendFields is a list of field names (e.g. "Id") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Id") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *InterconnectRemoteLocationList) MarshalJSON() ([]byte, error) {
+	type NoMethod InterconnectRemoteLocationList
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// InterconnectRemoteLocationListWarning: [Output Only] Informational
+// warning message.
+type InterconnectRemoteLocationListWarning struct {
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
+	//
+	// Possible values:
+	//   "CLEANUP_FAILED" - Warning about failed cleanup of transient
+	// changes made by a failed operation.
+	//   "DEPRECATED_RESOURCE_USED" - A link to a deprecated resource was
+	// created.
+	//   "DEPRECATED_TYPE_USED" - When deploying and at least one of the
+	// resources has a type marked as deprecated
+	//   "DISK_SIZE_LARGER_THAN_IMAGE_SIZE" - The user created a boot disk
+	// that is larger than image size.
+	//   "EXPERIMENTAL_TYPE_USED" - When deploying and at least one of the
+	// resources has a type marked as experimental
+	//   "EXTERNAL_API_WARNING" - Warning that is present in an external api
+	// call
+	//   "FIELD_VALUE_OVERRIDEN" - Warning that value of a field has been
+	// overridden. Deprecated unused field.
+	//   "INJECTED_KERNELS_DEPRECATED" - The operation involved use of an
+	// injected kernel, which is deprecated.
+	//   "INVALID_HEALTH_CHECK_FOR_DYNAMIC_WIEGHTED_LB" - A WEIGHTED_MAGLEV
+	// backend service is associated with a health check that is not of type
+	// HTTP/HTTPS/HTTP2.
+	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
+	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
+	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
+	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
+	// not assigned to an instance on the network.
+	//   "NEXT_HOP_CANNOT_IP_FORWARD" - The route's next hop instance cannot
+	// ip forward.
+	//   "NEXT_HOP_INSTANCE_HAS_NO_IPV6_INTERFACE" - The route's
+	// nextHopInstance URL refers to an instance that does not have an ipv6
+	// interface on the same network as the route.
+	//   "NEXT_HOP_INSTANCE_NOT_FOUND" - The route's nextHopInstance URL
+	// refers to an instance that does not exist.
+	//   "NEXT_HOP_INSTANCE_NOT_ON_NETWORK" - The route's nextHopInstance
+	// URL refers to an instance that is not on the same network as the
+	// route.
+	//   "NEXT_HOP_NOT_RUNNING" - The route's next hop instance does not
+	// have a status of RUNNING.
+	//   "NOT_CRITICAL_ERROR" - Error which is not critical. We decided to
+	// continue the process despite the mentioned error.
+	//   "NO_RESULTS_ON_PAGE" - No results are present on a particular list
+	// page.
+	//   "PARTIAL_SUCCESS" - Success is reported, but some results may be
+	// missing due to errors
+	//   "REQUIRED_TOS_AGREEMENT" - The user attempted to use a resource
+	// that requires a TOS they have not accepted.
+	//   "RESOURCE_IN_USE_BY_OTHER_RESOURCE_WARNING" - Warning that a
+	// resource is in use.
+	//   "RESOURCE_NOT_DELETED" - One or more of the resources set to
+	// auto-delete could not be deleted because they were in use.
+	//   "SCHEMA_VALIDATION_IGNORED" - When a resource schema validation is
+	// ignored.
+	//   "SINGLE_INSTANCE_PROPERTY_TEMPLATE" - Instance template used in
+	// instance group manager is valid as such, but its application does not
+	// make a lot of sense, because it allows only single instance in
+	// instance group.
+	//   "UNDECLARED_PROPERTIES" - When undeclared properties in the schema
+	// are present
+	//   "UNREACHABLE" - A given scope cannot be reached.
+	Code string `json:"code,omitempty"`
+
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example: "data": [ { "key": "scope", "value": "zones/us-east1-d"
+	// }
+	Data []*InterconnectRemoteLocationListWarningData `json:"data,omitempty"`
+
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
+	Message string `json:"message,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Code") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Code") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *InterconnectRemoteLocationListWarning) MarshalJSON() ([]byte, error) {
+	type NoMethod InterconnectRemoteLocationListWarning
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type InterconnectRemoteLocationListWarningData struct {
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
+	Key string `json:"key,omitempty"`
+
+	// Value: [Output Only] A warning data value corresponding to the key.
+	Value string `json:"value,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Key") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Key") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *InterconnectRemoteLocationListWarningData) MarshalJSON() ([]byte, error) {
+	type NoMethod InterconnectRemoteLocationListWarningData
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type InterconnectRemoteLocationPermittedConnections struct {
+	// InterconnectLocation: [Output Only] URL of an Interconnect location
+	// that is permitted to connect to this Interconnect remote location.
+	InterconnectLocation string `json:"interconnectLocation,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g.
+	// "InterconnectLocation") to unconditionally include in API requests.
+	// By default, fields with empty or default values are omitted from API
+	// requests. However, any non-pointer, non-interface field appearing in
+	// ForceSendFields will be sent to the server regardless of whether the
+	// field is empty or not. This may be used to include empty fields in
+	// Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "InterconnectLocation") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *InterconnectRemoteLocationPermittedConnections) MarshalJSON() ([]byte, error) {
+	type NoMethod InterconnectRemoteLocationPermittedConnections
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -24505,6 +26261,9 @@ type LicensesListResponseWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -25186,6 +26945,9 @@ type MachineImageListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -25393,7 +27155,7 @@ type MachineTypeAccelerators struct {
 	GuestAcceleratorCount int64 `json:"guestAcceleratorCount,omitempty"`
 
 	// GuestAcceleratorType: The accelerator type resource name, not a full
-	// URL, e.g. 'nvidia-tesla-k80'.
+	// URL, e.g. nvidia-tesla-t4.
 	GuestAcceleratorType string `json:"guestAcceleratorType,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g.
@@ -25534,6 +27296,9 @@ type MachineTypeAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -25723,6 +27488,9 @@ type MachineTypeListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -25891,6 +27659,9 @@ type MachineTypesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -26075,9 +27846,9 @@ type ManagedInstance struct {
 	// is empty when the instance does not exist.
 	//
 	// Possible values:
-	//   "DEPROVISIONING" - The Nanny is halted and we are performing tear
-	// down tasks like network deprogramming, releasing quota, IP, tearing
-	// down disks etc.
+	//   "DEPROVISIONING" - The instance is halted and we are performing
+	// tear down tasks like network deprogramming, releasing quota, IP,
+	// tearing down disks etc.
 	//   "PROVISIONING" - Resources are being allocated for the instance.
 	//   "REPAIRING" - The instance is in repair.
 	//   "RUNNING" - The instance is running.
@@ -26587,7 +28358,7 @@ type Network struct {
 	FirewallPolicy string `json:"firewallPolicy,omitempty"`
 
 	// GatewayIPv4: [Output Only] The gateway address for default routing
-	// out of the network, selected by GCP.
+	// out of the network, selected by Google Cloud.
 	GatewayIPv4 string `json:"gatewayIPv4,omitempty"`
 
 	// Id: [Output Only] The unique identifier for the resource. This
@@ -26699,10 +28470,9 @@ type NetworkAttachment struct {
 	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
-	// Fingerprint: [Output Only] Fingerprint of this resource. A hash of
-	// the contents stored in this object. This field is used in optimistic
-	// locking. An up-to-date fingerprint must be provided in order to
-	// patch.
+	// Fingerprint: Fingerprint of this resource. A hash of the contents
+	// stored in this object. This field is used in optimistic locking. An
+	// up-to-date fingerprint must be provided in order to patch.
 	Fingerprint string `json:"fingerprint,omitempty"`
 
 	// Id: [Output Only] The unique identifier for the resource type. The
@@ -26722,7 +28492,11 @@ type NetworkAttachment struct {
 	Name string `json:"name,omitempty"`
 
 	// Network: [Output Only] The URL of the network which the Network
-	// Attachment belongs to.
+	// Attachment belongs to. Practically it is inferred by fetching the
+	// network of the first subnetwork associated. Because it is required
+	// that all the subnetworks must be from the same network, it is assured
+	// that the Network Attachment belongs to the same network as all the
+	// subnetworks.
 	Network string `json:"network,omitempty"`
 
 	// ProducerAcceptLists: Projects that are allowed to connect to this
@@ -26863,6 +28637,9 @@ type NetworkAttachmentAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -26973,7 +28750,7 @@ func (s *NetworkAttachmentAggregatedListWarningData) MarshalJSON() ([]byte, erro
 // NetworkAttachmentConnectedEndpoint: [Output Only] A connection
 // connected to this network attachment.
 type NetworkAttachmentConnectedEndpoint struct {
-	// IpAddress: The IP address assigned to the producer instance network
+	// IpAddress: The IPv4 address assigned to the producer instance network
 	// interface. This value will be a range in case of Serverless.
 	IpAddress string `json:"ipAddress,omitempty"`
 
@@ -26981,7 +28758,7 @@ type NetworkAttachmentConnectedEndpoint struct {
 	// the IP was assigned.
 	ProjectIdOrNum string `json:"projectIdOrNum,omitempty"`
 
-	// SecondaryIpCidrRanges: Alias IP ranges from the same subnetwork
+	// SecondaryIpCidrRanges: Alias IP ranges from the same subnetwork.
 	SecondaryIpCidrRanges []string `json:"secondaryIpCidrRanges,omitempty"`
 
 	// Status: The status of a connected endpoint to this network
@@ -27107,6 +28884,9 @@ type NetworkAttachmentListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -27276,6 +29056,9 @@ type NetworkAttachmentsScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -27552,6 +29335,9 @@ type NetworkEdgeSecurityServiceAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -27722,6 +29508,9 @@ type NetworkEdgeSecurityServicesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -28099,6 +29888,9 @@ type NetworkEndpointGroupAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -28431,6 +30223,9 @@ type NetworkEndpointGroupListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -28760,6 +30555,9 @@ type NetworkEndpointGroupsListNetworkEndpointsWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -28931,6 +30729,9 @@ type NetworkEndpointGroupsScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -29111,7 +30912,10 @@ type NetworkInterface struct {
 	Ipv6AccessType string `json:"ipv6AccessType,omitempty"`
 
 	// Ipv6Address: An IPv6 internal network address for this network
-	// interface.
+	// interface. To use a static internal IP address, it must be unused and
+	// in the same region as the instance's zone. If not specified, Google
+	// Cloud will automatically assign an internal IPv6 address from the
+	// instance's subnetwork.
 	Ipv6Address string `json:"ipv6Address,omitempty"`
 
 	// Kind: [Output Only] Type of the resource. Always
@@ -29137,6 +30941,12 @@ type NetworkInterface struct {
 	// global/networks/default
 	Network string `json:"network,omitempty"`
 
+	// NetworkAttachment: The URL of the network attachment that this
+	// interface should connect to in the following format:
+	// projects/{project_number}/regions/{region_name}/networkAttachments/{ne
+	// twork_attachment_name}.
+	NetworkAttachment string `json:"networkAttachment,omitempty"`
+
 	// NetworkIP: An IPv4 internal IP address to assign to the instance for
 	// this network interface. If not specified by the user, an unused
 	// internal IP is assigned by the system.
@@ -29156,10 +30966,11 @@ type NetworkInterface struct {
 	// number. It'll be empty if not specified by the users.
 	QueueCount int64 `json:"queueCount,omitempty"`
 
-	// StackType: The stack type for this network interface to identify
-	// whether the IPv6 feature is enabled or not. If not specified,
-	// IPV4_ONLY will be used. This field can be both set at instance
-	// creation and update network interface operations.
+	// StackType: The stack type for this network interface. To assign only
+	// IPv4 addresses, use IPV4_ONLY. To assign both IPv4 and IPv6
+	// addresses, use IPV4_IPV6. If not specified, IPV4_ONLY is used. This
+	// field can be both set at instance creation and update network
+	// interface operations.
 	//
 	// Possible values:
 	//   "IPV4_IPV6" - The network interface can have both IPv4 and IPv6
@@ -29283,6 +31094,9 @@ type NetworkListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -29954,6 +31768,9 @@ type NodeGroupAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -30185,6 +32002,9 @@ type NodeGroupListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -30543,6 +32363,9 @@ type NodeGroupsListNodesWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -30711,6 +32534,9 @@ type NodeGroupsScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -30846,6 +32672,33 @@ func (s *NodeGroupsSetNodeTemplateRequest) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+type NodeGroupsSimulateMaintenanceEventRequest struct {
+	// Nodes: Names of the nodes to go under maintenance simulation.
+	Nodes []string `json:"nodes,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Nodes") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Nodes") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *NodeGroupsSimulateMaintenanceEventRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod NodeGroupsSimulateMaintenanceEventRequest
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // NodeTemplate: Represent a sole-tenant Node Template resource. You can
 // use a template to define properties for nodes in a node group. For
 // more information, read Creating node groups and instances.
@@ -30896,11 +32749,7 @@ type NodeTemplate struct {
 	// this template.
 	NodeType string `json:"nodeType,omitempty"`
 
-	// NodeTypeFlexibility: The flexible properties of the desired node
-	// type. Node groups that use this node template will create nodes of a
-	// type that matches these properties. This field is mutually exclusive
-	// with the node_type property; you can only define one or the other,
-	// but not both.
+	// NodeTypeFlexibility: Do not use. Instead, use the node_type property.
 	NodeTypeFlexibility *NodeTemplateNodeTypeFlexibility `json:"nodeTypeFlexibility,omitempty"`
 
 	// Region: [Output Only] The name of the region where the node template
@@ -31045,6 +32894,9 @@ type NodeTemplateAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -31234,6 +33086,9 @@ type NodeTemplateListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -31432,6 +33287,9 @@ type NodeTemplatesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -31703,6 +33561,9 @@ type NodeTypeAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -31892,6 +33753,9 @@ type NodeTypeListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -32060,6 +33924,9 @@ type NodeTypesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -32373,6 +34240,9 @@ type NotificationEndpointListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -32756,6 +34626,9 @@ type OperationWarnings struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -32948,6 +34821,9 @@ type OperationAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -33137,6 +35013,9 @@ type OperationListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -33305,6 +35184,9 @@ type OperationsScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -33763,6 +35645,9 @@ type PacketMirroringAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -34031,6 +35916,9 @@ type PacketMirroringListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -34335,6 +36223,9 @@ type PacketMirroringsScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -35356,6 +37247,9 @@ type PublicAdvertisedPrefixListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -35704,6 +37598,9 @@ type PublicDelegatedPrefixAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -35893,6 +37790,9 @@ type PublicDelegatedPrefixListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -36121,6 +38021,9 @@ type PublicDelegatedPrefixesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -36261,6 +38164,7 @@ type Quota struct {
 	//   "COMMITTED_NVIDIA_A100_80GB_GPUS"
 	//   "COMMITTED_NVIDIA_A100_GPUS"
 	//   "COMMITTED_NVIDIA_K80_GPUS"
+	//   "COMMITTED_NVIDIA_L4_GPUS"
 	//   "COMMITTED_NVIDIA_P100_GPUS"
 	//   "COMMITTED_NVIDIA_P4_GPUS"
 	//   "COMMITTED_NVIDIA_T4_GPUS"
@@ -36309,13 +38213,18 @@ type Quota struct {
 	//   "N2D_CPUS"
 	//   "N2_CPUS"
 	//   "NETWORKS"
+	//   "NETWORK_ATTACHMENTS"
 	//   "NETWORK_ENDPOINT_GROUPS"
 	//   "NETWORK_FIREWALL_POLICIES"
+	//   "NET_LB_SECURITY_POLICIES_PER_REGION"
+	//   "NET_LB_SECURITY_POLICY_RULES_PER_REGION"
+	//   "NET_LB_SECURITY_POLICY_RULE_ATTRIBUTES_PER_REGION"
 	//   "NODE_GROUPS"
 	//   "NODE_TEMPLATES"
 	//   "NVIDIA_A100_80GB_GPUS"
 	//   "NVIDIA_A100_GPUS"
 	//   "NVIDIA_K80_GPUS"
+	//   "NVIDIA_L4_GPUS"
 	//   "NVIDIA_P100_GPUS"
 	//   "NVIDIA_P100_VWS_GPUS"
 	//   "NVIDIA_P4_GPUS"
@@ -36330,6 +38239,7 @@ type Quota struct {
 	//   "PREEMPTIBLE_NVIDIA_A100_80GB_GPUS"
 	//   "PREEMPTIBLE_NVIDIA_A100_GPUS"
 	//   "PREEMPTIBLE_NVIDIA_K80_GPUS"
+	//   "PREEMPTIBLE_NVIDIA_L4_GPUS"
 	//   "PREEMPTIBLE_NVIDIA_P100_GPUS"
 	//   "PREEMPTIBLE_NVIDIA_P100_VWS_GPUS"
 	//   "PREEMPTIBLE_NVIDIA_P4_GPUS"
@@ -36353,6 +38263,7 @@ type Quota struct {
 	//   "ROUTES"
 	//   "SECURITY_POLICIES"
 	//   "SECURITY_POLICIES_PER_REGION"
+	//   "SECURITY_POLICY_ADVANCED_RULES_PER_REGION"
 	//   "SECURITY_POLICY_CEVAL_RULES"
 	//   "SECURITY_POLICY_RULES"
 	//   "SECURITY_POLICY_RULES_PER_REGION"
@@ -36592,6 +38503,44 @@ func (s *Region) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+type RegionAddressesMoveRequest struct {
+	// Description: An optional destination address description if intended
+	// to be different from the source.
+	Description string `json:"description,omitempty"`
+
+	// DestinationAddress: The URL of the destination address to move to.
+	// This can be a full or partial URL. For example, the following are all
+	// valid URLs to a address: -
+	// https://www.googleapis.com/compute/v1/projects/project/regions/region
+	// /addresses/address -
+	// projects/project/regions/region/addresses/address Note that
+	// destination project must be different from the source project. So
+	// /regions/region/addresses/address is not valid partial url.
+	DestinationAddress string `json:"destinationAddress,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Description") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Description") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *RegionAddressesMoveRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod RegionAddressesMoveRequest
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // RegionAutoscalerList: Contains a list of autoscalers.
 type RegionAutoscalerList struct {
 	// Id: [Output Only] Unique identifier for the resource; defined by the
@@ -36674,6 +38623,9 @@ type RegionAutoscalerListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -36863,6 +38815,9 @@ type RegionDiskTypeListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -37054,6 +39009,42 @@ func (s *RegionDisksResizeRequest) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+type RegionDisksStartAsyncReplicationRequest struct {
+	// AsyncSecondaryDisk: The secondary disk to start asynchronous
+	// replication to. You can provide this as a partial or full URL to the
+	// resource. For example, the following are valid values: -
+	// https://www.googleapis.com/compute/v1/projects/project/zones/zone
+	// /disks/disk -
+	// https://www.googleapis.com/compute/v1/projects/project/regions/region
+	// /disks/disk - projects/project/zones/zone/disks/disk -
+	// projects/project/regions/region/disks/disk - zones/zone/disks/disk -
+	// regions/region/disks/disk
+	AsyncSecondaryDisk string `json:"asyncSecondaryDisk,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "AsyncSecondaryDisk")
+	// to unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "AsyncSecondaryDisk") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *RegionDisksStartAsyncReplicationRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod RegionDisksStartAsyncReplicationRequest
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // RegionInstanceGroupList: Contains a list of InstanceGroup resources.
 type RegionInstanceGroupList struct {
 	// Id: [Output Only] Unique identifier for the resource; defined by the
@@ -37136,6 +39127,9 @@ type RegionInstanceGroupListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -37358,6 +39352,9 @@ type RegionInstanceGroupManagerListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -37805,6 +39802,9 @@ type RegionInstanceGroupManagersListInstanceConfigsRespWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -38125,6 +40125,9 @@ type RegionInstanceGroupsListInstancesWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -38388,6 +40391,9 @@ type RegionListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -38774,6 +40780,15 @@ type Reservation struct {
 	// be a dash.
 	Name string `json:"name,omitempty"`
 
+	// ResourcePolicies: Resource policies to be added to this reservation.
+	// The key is defined by user, and the value is resource policy url.
+	// This is to define placement policy with reservation.
+	ResourcePolicies map[string]string `json:"resourcePolicies,omitempty"`
+
+	// ResourceStatus: [Output Only] Status information for Reservation
+	// resource.
+	ResourceStatus *AllocationResourceStatus `json:"resourceStatus,omitempty"`
+
 	// SatisfiesPzs: [Output Only] Reserved for future use.
 	SatisfiesPzs bool `json:"satisfiesPzs,omitempty"`
 
@@ -38977,6 +40992,9 @@ type ReservationAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -39165,6 +41183,9 @@ type ReservationListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -39361,6 +41382,9 @@ type ReservationsScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -39605,6 +41629,9 @@ type ResourcePoliciesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -39722,6 +41749,10 @@ type ResourcePolicy struct {
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
 	Description string `json:"description,omitempty"`
+
+	// DiskConsistencyGroupPolicy: Resource policy for disk consistency
+	// groups.
+	DiskConsistencyGroupPolicy *ResourcePolicyDiskConsistencyGroupPolicy `json:"diskConsistencyGroupPolicy,omitempty"`
 
 	// GroupPlacementPolicy: Resource policy for instances for placement
 	// configuration.
@@ -39888,6 +41919,9 @@ type ResourcePolicyAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -40034,6 +42068,11 @@ func (s *ResourcePolicyDailyCycle) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// ResourcePolicyDiskConsistencyGroupPolicy: Resource policy for disk
+// consistency groups.
+type ResourcePolicyDiskConsistencyGroupPolicy struct {
+}
+
 // ResourcePolicyGroupPlacementPolicy: A GroupPlacementPolicy specifies
 // resource placement configuration. It specifies the failure bucket
 // separation as well as network locality
@@ -40133,7 +42172,7 @@ type ResourcePolicyInstanceSchedulePolicy struct {
 
 	// TimeZone: Specifies the time zone to be used in interpreting
 	// Schedule.schedule. The value of this field must be a time zone name
-	// from the tz database: http://en.wikipedia.org/wiki/Tz_database.
+	// from the tz database: https://wikipedia.org/wiki/Tz_database.
 	TimeZone string `json:"timeZone,omitempty"`
 
 	// VmStartSchedule: Specifies the schedule for starting instances.
@@ -40280,6 +42319,9 @@ type ResourcePolicyListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -40893,6 +42935,9 @@ type RouteWarnings struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -41124,6 +43169,9 @@ type RouteListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -41439,6 +43487,9 @@ type RouterAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -41623,9 +43674,9 @@ type RouterBgpPeer struct {
 	AdvertiseMode string `json:"advertiseMode,omitempty"`
 
 	// AdvertisedGroups: User-specified list of prefix groups to advertise
-	// in custom mode, which can take one of the following options: -
-	// ALL_SUBNETS: Advertises all available subnets, including peer VPC
-	// subnets. - ALL_VPC_SUBNETS: Advertises the router's own VPC subnets.
+	// in custom mode, which currently supports the following option: -
+	// ALL_SUBNETS: Advertises all of the router's own VPC subnets. This
+	// excludes any routes learned for subnets that use VPC Network Peering.
 	// Note that this field can only be populated if advertise_mode is
 	// CUSTOM and overrides the list defined for the router (in the "bgp"
 	// message). These groups are advertised in addition to any specified
@@ -41992,6 +44043,9 @@ type RouterListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -42224,10 +44278,9 @@ type RouterNat struct {
 	// in every Subnetwork are allowed to Nat. - LIST_OF_SUBNETWORKS: A list
 	// of Subnetworks are allowed to Nat (specified in the field subnetwork
 	// below) The default is SUBNETWORK_IP_RANGE_TO_NAT_OPTION_UNSPECIFIED.
-	// Note that if this field contains ALL_SUBNETWORKS_ALL_IP_RANGES or
-	// ALL_SUBNETWORKS_ALL_PRIMARY_IP_RANGES, then there should not be any
-	// other Router.Nat section in any Router for this network in this
-	// region.
+	// Note that if this field contains ALL_SUBNETWORKS_ALL_IP_RANGES then
+	// there should not be any other Router.Nat section in any Router for
+	// this network in this region.
 	//
 	// Possible values:
 	//   "ALL_SUBNETWORKS_ALL_IP_RANGES" - All the IP ranges in every
@@ -42819,6 +44872,9 @@ type RoutersScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -43534,6 +45590,9 @@ type SecurityPoliciesAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -43734,6 +45793,9 @@ type SecurityPoliciesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -43904,6 +45966,20 @@ type SecurityPolicy struct {
 	// compute#securityPolicyfor security policies
 	Kind string `json:"kind,omitempty"`
 
+	// LabelFingerprint: A fingerprint for the labels being applied to this
+	// security policy, which is essentially a hash of the labels set used
+	// for optimistic locking. The fingerprint is initially generated by
+	// Compute Engine and changes after every request to modify or update
+	// labels. You must always provide an up-to-date fingerprint hash in
+	// order to update or change labels. To see the latest fingerprint, make
+	// get() request to the security policy.
+	LabelFingerprint string `json:"labelFingerprint,omitempty"`
+
+	// Labels: Labels for this resource. These can only be added or modified
+	// by the setLabels method. Each label key/value pair must comply with
+	// RFC1035. Label values may be empty.
+	Labels map[string]string `json:"labels,omitempty"`
+
 	// Name: Name of the resource. Provided by the client when the resource
 	// is created. The name must be 1-63 characters long, and comply with
 	// RFC1035. Specifically, the name must be 1-63 characters long and
@@ -43943,7 +46019,12 @@ type SecurityPolicy struct {
 	// internal service policies can be configured to filter HTTP requests
 	// targeting services managed by Traffic Director in a service mesh.
 	// They filter requests before the request is served from the
-	// application. This field can be set only at resource creation time.
+	// application. - CLOUD_ARMOR_NETWORK: Cloud Armor network policies can
+	// be configured to filter packets targeting network load balancing
+	// resources such as backend services, target pools, target instances,
+	// and instances with external IPs. They filter requests before the
+	// request is served from the application. This field can be set only at
+	// resource creation time.
 	//
 	// Possible values:
 	//   "CLOUD_ARMOR"
@@ -44013,13 +46094,17 @@ func (s *SecurityPolicyAdaptiveProtectionConfig) MarshalJSON() ([]byte, error) {
 }
 
 // SecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfig:
-// Configuration options for L7 DDoS detection.
+// Configuration options for L7 DDoS detection. This field is only
+// supported in Global Security Policies of type CLOUD_ARMOR.
 type SecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfig struct {
-	// Enable: If set to true, enables CAAP for L7 DDoS detection.
+	// Enable: If set to true, enables CAAP for L7 DDoS detection. This
+	// field is only supported in Global Security Policies of type
+	// CLOUD_ARMOR.
 	Enable bool `json:"enable,omitempty"`
 
 	// RuleVisibility: Rule visibility can be one of the following: STANDARD
-	// - opaque rules. (default) PREMIUM - transparent rules.
+	// - opaque rules. (default) PREMIUM - transparent rules. This field is
+	// only supported in Global Security Policies of type CLOUD_ARMOR.
 	//
 	// Possible values:
 	//   "PREMIUM"
@@ -44229,6 +46314,9 @@ type SecurityPolicyListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -44342,7 +46430,8 @@ type SecurityPolicyRecaptchaOptionsConfig struct {
 	// GOOGLE_RECAPTCHA under the security policy. The specified site key
 	// needs to be created from the reCAPTCHA API. The user is responsible
 	// for the validity of the specified site key. If not specified, a
-	// Google-managed site key is used.
+	// Google-managed site key is used. This field is only supported in
+	// Global Security Policies of type CLOUD_ARMOR.
 	RedirectSiteKey string `json:"redirectSiteKey,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "RedirectSiteKey") to
@@ -44401,18 +46490,20 @@ func (s *SecurityPolicyReference) MarshalJSON() ([]byte, error) {
 // matches this condition (allow or deny).
 type SecurityPolicyRule struct {
 	// Action: The Action to perform when the rule is matched. The following
-	// are the valid actions: - allow: allow access to target. - deny():
-	// deny access to target, returns the HTTP response code specified
-	// (valid values are 403, 404, and 502). - rate_based_ban: limit client
-	// traffic to the configured threshold and ban the client if the traffic
-	// exceeds the threshold. Configure parameters for this action in
-	// RateLimitOptions. Requires rate_limit_options to be set. - redirect:
-	// redirect to a different target. This can either be an internal
-	// reCAPTCHA redirect, or an external URL-based redirect via a 302
-	// response. Parameters for this action can be configured via
-	// redirectOptions. - throttle: limit client traffic to the configured
-	// threshold. Configure parameters for this action in rateLimitOptions.
-	// Requires rate_limit_options to be set for this.
+	// are the valid actions: - allow: allow access to target. -
+	// deny(STATUS): deny access to target, returns the HTTP response code
+	// specified. Valid values for `STATUS` are 403, 404, and 502. -
+	// rate_based_ban: limit client traffic to the configured threshold and
+	// ban the client if the traffic exceeds the threshold. Configure
+	// parameters for this action in RateLimitOptions. Requires
+	// rate_limit_options to be set. - redirect: redirect to a different
+	// target. This can either be an internal reCAPTCHA redirect, or an
+	// external URL-based redirect via a 302 response. Parameters for this
+	// action can be configured via redirectOptions. This action is only
+	// supported in Global Security Policies of type CLOUD_ARMOR. -
+	// throttle: limit client traffic to the configured threshold. Configure
+	// parameters for this action in rateLimitOptions. Requires
+	// rate_limit_options to be set for this.
 	Action string `json:"action,omitempty"`
 
 	// Description: An optional description of this resource. Provide this
@@ -44420,7 +46511,8 @@ type SecurityPolicyRule struct {
 	Description string `json:"description,omitempty"`
 
 	// HeaderAction: Optional, additional actions that are performed on
-	// headers.
+	// headers. This field is only supported in Global Security Policies of
+	// type CLOUD_ARMOR.
 	HeaderAction *SecurityPolicyRuleHttpHeaderAction `json:"headerAction,omitempty"`
 
 	// Kind: [Output only] Type of the resource. Always
@@ -44430,6 +46522,12 @@ type SecurityPolicyRule struct {
 	// Match: A match condition that incoming traffic is evaluated against.
 	// If it evaluates to true, the corresponding 'action' is enforced.
 	Match *SecurityPolicyRuleMatcher `json:"match,omitempty"`
+
+	// PreconfiguredWafConfig: Preconfigured WAF configuration to be applied
+	// for the rule. If the rule does not evaluate preconfigured WAF rules,
+	// i.e., if evaluatePreconfiguredWaf() is not used, this field will have
+	// no effect.
+	PreconfiguredWafConfig *SecurityPolicyRulePreconfiguredWafConfig `json:"preconfiguredWafConfig,omitempty"`
 
 	// Preview: If set to true, the specified action is not enforced.
 	Preview bool `json:"preview,omitempty"`
@@ -44445,7 +46543,8 @@ type SecurityPolicyRule struct {
 	RateLimitOptions *SecurityPolicyRuleRateLimitOptions `json:"rateLimitOptions,omitempty"`
 
 	// RedirectOptions: Parameters defining the redirect action. Cannot be
-	// specified for any other actions.
+	// specified for any other actions. This field is only supported in
+	// Global Security Policies of type CLOUD_ARMOR.
 	RedirectOptions *SecurityPolicyRuleRedirectOptions `json:"redirectOptions,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -44545,7 +46644,13 @@ type SecurityPolicyRuleMatcher struct {
 
 	// Expr: User defined CEVAL expression. A CEVAL expression is used to
 	// specify match criteria such as origin.ip, source.region_code and
-	// contents in the request header.
+	// contents in the request header. Expressions containing
+	// `evaluateThreatIntelligence` require Cloud Armor Managed Protection
+	// Plus tier and are not supported in Edge Policies nor in Regional
+	// Policies. Expressions containing
+	// `evaluatePreconfiguredExpr('sourceiplist-*')` require Cloud Armor
+	// Managed Protection Plus tier and are only supported in Global
+	// Security Policies.
 	Expr *Expr `json:"expr,omitempty"`
 
 	// VersionedExpr: Preconfigured versioned expression. If this field is
@@ -44609,6 +46714,130 @@ func (s *SecurityPolicyRuleMatcherConfig) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+type SecurityPolicyRulePreconfiguredWafConfig struct {
+	// Exclusions: A list of exclusions to apply during preconfigured WAF
+	// evaluation.
+	Exclusions []*SecurityPolicyRulePreconfiguredWafConfigExclusion `json:"exclusions,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Exclusions") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Exclusions") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *SecurityPolicyRulePreconfiguredWafConfig) MarshalJSON() ([]byte, error) {
+	type NoMethod SecurityPolicyRulePreconfiguredWafConfig
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type SecurityPolicyRulePreconfiguredWafConfigExclusion struct {
+	// RequestCookiesToExclude: A list of request cookie names whose value
+	// will be excluded from inspection during preconfigured WAF evaluation.
+	RequestCookiesToExclude []*SecurityPolicyRulePreconfiguredWafConfigExclusionFieldParams `json:"requestCookiesToExclude,omitempty"`
+
+	// RequestHeadersToExclude: A list of request header names whose value
+	// will be excluded from inspection during preconfigured WAF evaluation.
+	RequestHeadersToExclude []*SecurityPolicyRulePreconfiguredWafConfigExclusionFieldParams `json:"requestHeadersToExclude,omitempty"`
+
+	// RequestQueryParamsToExclude: A list of request query parameter names
+	// whose value will be excluded from inspection during preconfigured WAF
+	// evaluation. Note that the parameter can be in the query string or in
+	// the POST body.
+	RequestQueryParamsToExclude []*SecurityPolicyRulePreconfiguredWafConfigExclusionFieldParams `json:"requestQueryParamsToExclude,omitempty"`
+
+	// RequestUrisToExclude: A list of request URIs from the request line to
+	// be excluded from inspection during preconfigured WAF evaluation. When
+	// specifying this field, the query or fragment part should be excluded.
+	RequestUrisToExclude []*SecurityPolicyRulePreconfiguredWafConfigExclusionFieldParams `json:"requestUrisToExclude,omitempty"`
+
+	// TargetRuleIds: A list of target rule IDs under the WAF rule set to
+	// apply the preconfigured WAF exclusion. If omitted, it refers to all
+	// the rule IDs under the WAF rule set.
+	TargetRuleIds []string `json:"targetRuleIds,omitempty"`
+
+	// TargetRuleSet: Target WAF rule set to apply the preconfigured WAF
+	// exclusion.
+	TargetRuleSet string `json:"targetRuleSet,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g.
+	// "RequestCookiesToExclude") to unconditionally include in API
+	// requests. By default, fields with empty or default values are omitted
+	// from API requests. However, any non-pointer, non-interface field
+	// appearing in ForceSendFields will be sent to the server regardless of
+	// whether the field is empty or not. This may be used to include empty
+	// fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "RequestCookiesToExclude")
+	// to include in API requests with the JSON null value. By default,
+	// fields with empty values are omitted from API requests. However, any
+	// field with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *SecurityPolicyRulePreconfiguredWafConfigExclusion) MarshalJSON() ([]byte, error) {
+	type NoMethod SecurityPolicyRulePreconfiguredWafConfigExclusion
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type SecurityPolicyRulePreconfiguredWafConfigExclusionFieldParams struct {
+	// Op: The match operator for the field.
+	//
+	// Possible values:
+	//   "CONTAINS" - The operator matches if the field value contains the
+	// specified value.
+	//   "ENDS_WITH" - The operator matches if the field value ends with the
+	// specified value.
+	//   "EQUALS" - The operator matches if the field value equals the
+	// specified value.
+	//   "EQUALS_ANY" - The operator matches if the field value is any
+	// value.
+	//   "STARTS_WITH" - The operator matches if the field value starts with
+	// the specified value.
+	Op string `json:"op,omitempty"`
+
+	// Val: The value of the field.
+	Val string `json:"val,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Op") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Op") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *SecurityPolicyRulePreconfiguredWafConfigExclusionFieldParams) MarshalJSON() ([]byte, error) {
+	type NoMethod SecurityPolicyRulePreconfiguredWafConfigExclusionFieldParams
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 type SecurityPolicyRuleRateLimitOptions struct {
 	// BanDurationSec: Can only be specified if the action for the rule is
 	// "rate_based_ban". If specified, determines the time (in seconds) the
@@ -44660,6 +46889,13 @@ type SecurityPolicyRuleRateLimitOptions struct {
 	//   "XFF_IP"
 	EnforceOnKey string `json:"enforceOnKey,omitempty"`
 
+	// EnforceOnKeyConfigs: If specified, any combination of values of
+	// enforce_on_key_type/enforce_on_key_name is treated as the key on
+	// which ratelimit threshold/action is enforced. You can specify up to 3
+	// enforce_on_key_configs. If enforce_on_key_configs is specified,
+	// enforce_on_key must not be specified.
+	EnforceOnKeyConfigs []*SecurityPolicyRuleRateLimitOptionsEnforceOnKeyConfig `json:"enforceOnKeyConfigs,omitempty"`
+
 	// EnforceOnKeyName: Rate limit key name applicable only for the
 	// following key types: HTTP_HEADER -- Name of the HTTP header whose
 	// value is taken as the key value. HTTP_COOKIE -- Name of the HTTP
@@ -44669,14 +46905,16 @@ type SecurityPolicyRuleRateLimitOptions struct {
 	// ExceedAction: Action to take for requests that are above the
 	// configured rate limit threshold, to either deny with a specified HTTP
 	// response code, or redirect to a different endpoint. Valid options are
-	// "deny(status)", where valid values for status are 403, 404, 429, and
-	// 502, and "redirect" where the redirect parameters come from
-	// exceedRedirectOptions below.
+	// `deny(STATUS)`, where valid values for `STATUS` are 403, 404, 429,
+	// and 502, and `redirect`, where the redirect parameters come from
+	// `exceedRedirectOptions` below. The `redirect` action is only
+	// supported in Global Security Policies of type CLOUD_ARMOR.
 	ExceedAction string `json:"exceedAction,omitempty"`
 
 	// ExceedRedirectOptions: Parameters defining the redirect action that
 	// is used as the exceed action. Cannot be specified if the exceed
-	// action is not redirect.
+	// action is not redirect. This field is only supported in Global
+	// Security Policies of type CLOUD_ARMOR.
 	ExceedRedirectOptions *SecurityPolicyRuleRedirectOptions `json:"exceedRedirectOptions,omitempty"`
 
 	// RateLimitThreshold: Threshold at which to begin ratelimiting.
@@ -44702,6 +46940,71 @@ type SecurityPolicyRuleRateLimitOptions struct {
 
 func (s *SecurityPolicyRuleRateLimitOptions) MarshalJSON() ([]byte, error) {
 	type NoMethod SecurityPolicyRuleRateLimitOptions
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type SecurityPolicyRuleRateLimitOptionsEnforceOnKeyConfig struct {
+	// EnforceOnKeyName: Rate limit key name applicable only for the
+	// following key types: HTTP_HEADER -- Name of the HTTP header whose
+	// value is taken as the key value. HTTP_COOKIE -- Name of the HTTP
+	// cookie whose value is taken as the key value.
+	EnforceOnKeyName string `json:"enforceOnKeyName,omitempty"`
+
+	// EnforceOnKeyType: Determines the key to enforce the
+	// rate_limit_threshold on. Possible values are: - ALL: A single rate
+	// limit threshold is applied to all the requests matching this rule.
+	// This is the default value if "enforceOnKeyConfigs" is not configured.
+	// - IP: The source IP address of the request is the key. Each IP has
+	// this limit enforced separately. - HTTP_HEADER: The value of the HTTP
+	// header whose name is configured under "enforceOnKeyName". The key
+	// value is truncated to the first 128 bytes of the header value. If no
+	// such header is present in the request, the key type defaults to ALL.
+	// - XFF_IP: The first IP address (i.e. the originating client IP
+	// address) specified in the list of IPs under X-Forwarded-For HTTP
+	// header. If no such header is present or the value is not a valid IP,
+	// the key defaults to the source IP address of the request i.e. key
+	// type IP. - HTTP_COOKIE: The value of the HTTP cookie whose name is
+	// configured under "enforceOnKeyName". The key value is truncated to
+	// the first 128 bytes of the cookie value. If no such cookie is present
+	// in the request, the key type defaults to ALL. - HTTP_PATH: The URL
+	// path of the HTTP request. The key value is truncated to the first 128
+	// bytes. - SNI: Server name indication in the TLS session of the HTTPS
+	// request. The key value is truncated to the first 128 bytes. The key
+	// type defaults to ALL on a HTTP session. - REGION_CODE: The
+	// country/region from which the request originates.
+	//
+	// Possible values:
+	//   "ALL"
+	//   "HTTP_COOKIE"
+	//   "HTTP_HEADER"
+	//   "HTTP_PATH"
+	//   "IP"
+	//   "REGION_CODE"
+	//   "SNI"
+	//   "XFF_IP"
+	EnforceOnKeyType string `json:"enforceOnKeyType,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "EnforceOnKeyName") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "EnforceOnKeyName") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *SecurityPolicyRuleRateLimitOptionsEnforceOnKeyConfig) MarshalJSON() ([]byte, error) {
+	type NoMethod SecurityPolicyRuleRateLimitOptionsEnforceOnKeyConfig
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -44779,7 +47082,7 @@ type SecuritySettings struct {
 	// should authenticate with this service's backends. clientTlsPolicy
 	// only applies to a global BackendService with the loadBalancingScheme
 	// set to INTERNAL_SELF_MANAGED. If left blank, communications are not
-	// encrypted. Note: This field currently has no impact.
+	// encrypted.
 	ClientTlsPolicy string `json:"clientTlsPolicy,omitempty"`
 
 	// SubjectAltNames: Optional. A list of Subject Alternative Names (SANs)
@@ -44794,8 +47097,7 @@ type SecuritySettings struct {
 	// Public Key Infrastructure which provisions server identities. Only
 	// applies to a global BackendService with loadBalancingScheme set to
 	// INTERNAL_SELF_MANAGED. Only applies when BackendService has an
-	// attached clientTlsPolicy with clientCertificate (mTLS mode). Note:
-	// This field currently has no impact.
+	// attached clientTlsPolicy with clientCertificate (mTLS mode).
 	SubjectAltNames []string `json:"subjectAltNames,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClientTlsPolicy") to
@@ -44944,7 +47246,7 @@ func (s *ServiceAccount) MarshalJSON() ([]byte, error) {
 // attachment represents a service that a producer has exposed. It
 // encapsulates the load balancer which fronts the service runs and a
 // list of NAT IP ranges that the producers uses to represent the
-// consumers connecting to the service. next tag = 20
+// consumers connecting to the service.
 type ServiceAttachment struct {
 	// ConnectedEndpoints: [Output Only] An array of connections for all the
 	// consumers connected to this service attachment.
@@ -45028,6 +47330,18 @@ type ServiceAttachment struct {
 	// PscServiceAttachmentId: [Output Only] An 128-bit global unique ID of
 	// the PSC service attachment.
 	PscServiceAttachmentId *Uint128 `json:"pscServiceAttachmentId,omitempty"`
+
+	// ReconcileConnections: This flag determines whether a consumer
+	// accept/reject list change can reconcile the statuses of existing
+	// ACCEPTED or REJECTED PSC endpoints. - If false, connection policy
+	// update will only affect existing PENDING PSC endpoints. Existing
+	// ACCEPTED/REJECTED endpoints will remain untouched regardless how the
+	// connection policy is modified . - If true, update will affect both
+	// PENDING and ACCEPTED/REJECTED PSC endpoints. For example, an ACCEPTED
+	// PSC endpoint will be moved to REJECTED if its project is added to the
+	// reject list. For newly created service attachment, this boolean
+	// defaults to true.
+	ReconcileConnections bool `json:"reconcileConnections,omitempty"`
 
 	// Region: [Output Only] URL of the region where the service attachment
 	// resides. This field applies only to the region resource. You must
@@ -45156,6 +47470,9 @@ type ServiceAttachmentAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -45427,6 +47744,9 @@ type ServiceAttachmentListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -45596,6 +47916,9 @@ type ServiceAttachmentsScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -46231,6 +48554,9 @@ type SnapshotListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -46380,8 +48706,8 @@ func (s *SourceDiskEncryptionKey) MarshalJSON() ([]byte, error) {
 // creating the instance template from a source instance.
 type SourceInstanceParams struct {
 	// DiskConfigs: Attached disks configuration. If not provided, defaults
-	// are applied: For boot disk and any other R/W disks, new custom images
-	// will be created from each disk. For read-only disks, they will be
+	// are applied: For boot disk and any other R/W disks, the source images
+	// for each disk will be used. For read-only disks, they will be
 	// attached in read-only mode. Local SSD disks will be created as blank
 	// volumes.
 	DiskConfigs []*DiskInstantiationConfig `json:"diskConfigs,omitempty"`
@@ -46709,6 +49035,9 @@ type SslCertificateAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -46898,6 +49227,9 @@ type SslCertificateListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -47161,6 +49493,9 @@ type SslCertificatesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -47355,6 +49690,9 @@ type SslPoliciesAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -47543,6 +49881,9 @@ type SslPoliciesListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -47740,6 +50081,9 @@ type SslPoliciesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -47991,6 +50335,9 @@ type SslPolicyWarnings struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -48239,8 +50586,8 @@ type Subnetwork struct {
 	// If this field is not explicitly set, it will not appear in get
 	// listings. If not set the default behavior is determined by the org
 	// policy, if there is no org policy specified, then it will default to
-	// disabled. This field isn't supported with the purpose field set to
-	// INTERNAL_HTTPS_LOAD_BALANCER.
+	// disabled. This field isn't supported if the subnet purpose field is
+	// set to REGIONAL_MANAGED_PROXY.
 	EnableFlowLogs bool `json:"enableFlowLogs,omitempty"`
 
 	// ExternalIpv6Prefix: The external IPv6 address range that is owned by
@@ -48333,12 +50680,20 @@ type Subnetwork struct {
 	PrivateIpv6GoogleAccess string `json:"privateIpv6GoogleAccess,omitempty"`
 
 	// Purpose: The purpose of the resource. This field can be either
-	// PRIVATE_RFC_1918 or INTERNAL_HTTPS_LOAD_BALANCER. A subnetwork with
-	// purpose set to INTERNAL_HTTPS_LOAD_BALANCER is a user-created
-	// subnetwork that is reserved for Internal HTTP(S) Load Balancing. If
-	// unspecified, the purpose defaults to PRIVATE_RFC_1918. The
-	// enableFlowLogs field isn't supported with the purpose field set to
-	// INTERNAL_HTTPS_LOAD_BALANCER.
+	// PRIVATE, REGIONAL_MANAGED_PROXY, PRIVATE_SERVICE_CONNECT, or
+	// INTERNAL_HTTPS_LOAD_BALANCER. PRIVATE is the default purpose for
+	// user-created subnets or subnets that are automatically created in
+	// auto mode networks. A subnet with purpose set to
+	// REGIONAL_MANAGED_PROXY is a user-created subnetwork that is reserved
+	// for regional Envoy-based load balancers. A subnet with purpose set to
+	// PRIVATE_SERVICE_CONNECT is used to publish services using Private
+	// Service Connect. A subnet with purpose set to
+	// INTERNAL_HTTPS_LOAD_BALANCER is a proxy-only subnet that can be used
+	// only by regional internal HTTP(S) load balancers. Note that
+	// REGIONAL_MANAGED_PROXY is the preferred setting for all regional
+	// Envoy load balancers. If unspecified, the subnet purpose defaults to
+	// PRIVATE. The enableFlowLogs field isn't supported if the subnet
+	// purpose field is set to REGIONAL_MANAGED_PROXY.
 	//
 	// Possible values:
 	//   "INTERNAL_HTTPS_LOAD_BALANCER" - Subnet reserved for Internal
@@ -48357,9 +50712,9 @@ type Subnetwork struct {
 	Region string `json:"region,omitempty"`
 
 	// Role: The role of subnetwork. Currently, this field is only used when
-	// purpose = INTERNAL_HTTPS_LOAD_BALANCER. The value can be set to
-	// ACTIVE or BACKUP. An ACTIVE subnetwork is one that is currently being
-	// used for Internal HTTP(S) Load Balancing. A BACKUP subnetwork is one
+	// purpose = REGIONAL_MANAGED_PROXY. The value can be set to ACTIVE or
+	// BACKUP. An ACTIVE subnetwork is one that is currently being used for
+	// Envoy-based load balancers in a region. A BACKUP subnetwork is one
 	// that is ready to be promoted to ACTIVE or is currently draining. This
 	// field can be updated with a patch request.
 	//
@@ -48516,6 +50871,9 @@ type SubnetworkAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -48705,6 +51063,9 @@ type SubnetworkListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -48834,6 +51195,8 @@ type SubnetworkLogConfig struct {
 	// field is not explicitly set, it will not appear in get listings. If
 	// not set the default behavior is determined by the org policy, if
 	// there is no org policy specified, then it will default to disabled.
+	// Flow logging isn't supported if the subnet purpose field is set to
+	// REGIONAL_MANAGED_PROXY.
 	Enable bool `json:"enable,omitempty"`
 
 	// FilterExpr: Can only be specified if VPC flow logs for this
@@ -49033,6 +51396,9 @@ type SubnetworksScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -49511,6 +51877,9 @@ type TargetGrpcProxyListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -49680,6 +52049,9 @@ type TargetHttpProxiesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -50020,6 +52392,9 @@ type TargetHttpProxyListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -50189,6 +52564,9 @@ type TargetHttpsProxiesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -50298,7 +52676,9 @@ func (s *TargetHttpsProxiesScopedListWarningData) MarshalJSON() ([]byte, error) 
 
 type TargetHttpsProxiesSetCertificateMapRequest struct {
 	// CertificateMap: URL of the Certificate Map to associate with this
-	// TargetHttpsProxy.
+	// TargetHttpsProxy. Accepted format is
+	// //certificatemanager.googleapis.com/projects/{project
+	// }/locations/{location}/certificateMaps/{resourceName}.
 	CertificateMap string `json:"certificateMap,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "CertificateMap") to
@@ -50415,7 +52795,9 @@ type TargetHttpsProxy struct {
 	// CertificateMap: URL of a certificate map that identifies a
 	// certificate map associated with the given target proxy. This field
 	// can only be set for global target proxies. If set, sslCertificates
-	// will be ignored.
+	// will be ignored. Accepted format is
+	// //certificatemanager.googleapis.com/projects/{project
+	// }/locations/{location}/certificateMaps/{resourceName}.
 	CertificateMap string `json:"certificateMap,omitempty"`
 
 	// CreationTimestamp: [Output Only] Creation timestamp in RFC3339 text
@@ -50493,9 +52875,11 @@ type TargetHttpsProxy struct {
 	// networksecurity.ServerTlsPolicy resource that describes how the proxy
 	// should authenticate inbound traffic. serverTlsPolicy only applies to
 	// a global TargetHttpsProxy attached to globalForwardingRules with the
-	// loadBalancingScheme set to INTERNAL_SELF_MANAGED. If left blank,
-	// communications are not encrypted. Note: This field currently has no
-	// impact.
+	// loadBalancingScheme set to INTERNAL_SELF_MANAGED or EXTERNAL or
+	// EXTERNAL_MANAGED. For details which ServerTlsPolicy resources are
+	// accepted with INTERNAL_SELF_MANAGED and which with EXTERNAL,
+	// EXTERNAL_MANAGED loadBalancingScheme consult ServerTlsPolicy
+	// documentation. If left blank, communications are not encrypted.
 	ServerTlsPolicy string `json:"serverTlsPolicy,omitempty"`
 
 	// SslCertificates: URLs to SslCertificate resources that are used to
@@ -50632,6 +53016,9 @@ type TargetHttpsProxyAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -50822,6 +53209,9 @@ type TargetHttpsProxyListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -51102,6 +53492,9 @@ type TargetInstanceAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -51291,6 +53684,9 @@ type TargetInstanceListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -51459,6 +53855,9 @@ type TargetInstancesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -51808,6 +54207,9 @@ type TargetPoolAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -52032,6 +54434,9 @@ type TargetPoolListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -52318,6 +54723,9 @@ type TargetPoolsScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -52481,7 +54889,9 @@ func (s *TargetSslProxiesSetBackendServiceRequest) MarshalJSON() ([]byte, error)
 
 type TargetSslProxiesSetCertificateMapRequest struct {
 	// CertificateMap: URL of the Certificate Map to associate with this
-	// TargetSslProxy.
+	// TargetSslProxy. Accepted format is
+	// //certificatemanager.googleapis.com/projects/{project
+	// }/locations/{location}/certificateMaps/{resourceName}.
 	CertificateMap string `json:"certificateMap,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "CertificateMap") to
@@ -52579,7 +54989,9 @@ type TargetSslProxy struct {
 	// CertificateMap: URL of a certificate map that identifies a
 	// certificate map associated with the given target proxy. This field
 	// can only be set for global target proxies. If set, sslCertificates
-	// will be ignored.
+	// will be ignored. Accepted format is
+	// //certificatemanager.googleapis.com/projects/{project
+	// }/locations/{location}/certificateMaps/{resourceName}.
 	CertificateMap string `json:"certificateMap,omitempty"`
 
 	// CreationTimestamp: [Output Only] Creation timestamp in RFC3339 text
@@ -52744,6 +55156,9 @@ type TargetSslProxyListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -52912,6 +55327,9 @@ type TargetTcpProxiesScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -53253,6 +55671,9 @@ type TargetTcpProxyAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -53442,6 +55863,9 @@ type TargetTcpProxyListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -53573,6 +55997,21 @@ type TargetVpnGateway struct {
 	// Kind: [Output Only] Type of resource. Always compute#targetVpnGateway
 	// for target VPN gateways.
 	Kind string `json:"kind,omitempty"`
+
+	// LabelFingerprint: A fingerprint for the labels being applied to this
+	// TargetVpnGateway, which is essentially a hash of the labels set used
+	// for optimistic locking. The fingerprint is initially generated by
+	// Compute Engine and changes after every request to modify or update
+	// labels. You must always provide an up-to-date fingerprint hash in
+	// order to update or change labels, otherwise the request will fail
+	// with error 412 conditionNotMet. To see the latest fingerprint, make a
+	// get() request to retrieve a TargetVpnGateway.
+	LabelFingerprint string `json:"labelFingerprint,omitempty"`
+
+	// Labels: Labels for this resource. These can only be added or modified
+	// by the setLabels method. Each label key/value pair must comply with
+	// RFC1035. Label values may be empty.
+	Labels map[string]string `json:"labels,omitempty"`
 
 	// Name: Name of the resource. Provided by the client when the resource
 	// is created. The name must be 1-63 characters long, and comply with
@@ -53723,6 +56162,9 @@ type TargetVpnGatewayAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -53913,6 +56355,9 @@ type TargetVpnGatewayListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -54082,6 +56527,9 @@ type TargetVpnGatewaysScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -54561,6 +57009,9 @@ type UrlMapListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -54914,6 +57365,9 @@ type UrlMapsAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -55081,6 +57535,9 @@ type UrlMapsScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -55286,6 +57743,22 @@ type UrlRewrite struct {
 	// characters.
 	PathPrefixRewrite string `json:"pathPrefixRewrite,omitempty"`
 
+	// PathTemplateRewrite:  If specified, the pattern rewrites the URL path
+	// (based on the :path header) using the HTTP template syntax. A
+	// corresponding path_template_match must be specified. Any template
+	// variables must exist in the path_template_match field. - -At least
+	// one variable must be specified in the path_template_match field - You
+	// can omit variables from the rewritten URL - The * and ** operators
+	// cannot be matched unless they have a corresponding variable name -
+	// e.g. {format=*} or {var=**}. For example, a path_template_match of
+	// /static/{format=**} could be rewritten as /static/content/{format} to
+	// prefix /content to the URL. Variables can also be re-ordered in a
+	// rewrite, so that /{country}/{format}/{suffix=**} can be rewritten as
+	// /content/{format}/{country}/{suffix}. At least one non-empty
+	// routeRules[].matchRules[].path_template_match is required. Only one
+	// of path_prefix_rewrite or path_template_rewrite may be specified.
+	PathTemplateRewrite string `json:"pathTemplateRewrite,omitempty"`
+
 	// ForceSendFields is a list of field names (e.g. "HostRewrite") to
 	// unconditionally include in API requests. By default, fields with
 	// empty or default values are omitted from API requests. However, any
@@ -55339,12 +57812,20 @@ type UsableSubnetwork struct {
 	Network string `json:"network,omitempty"`
 
 	// Purpose: The purpose of the resource. This field can be either
-	// PRIVATE_RFC_1918 or INTERNAL_HTTPS_LOAD_BALANCER. A subnetwork with
-	// purpose set to INTERNAL_HTTPS_LOAD_BALANCER is a user-created
-	// subnetwork that is reserved for Internal HTTP(S) Load Balancing. If
-	// unspecified, the purpose defaults to PRIVATE_RFC_1918. The
-	// enableFlowLogs field isn't supported with the purpose field set to
-	// INTERNAL_HTTPS_LOAD_BALANCER.
+	// PRIVATE, REGIONAL_MANAGED_PROXY, PRIVATE_SERVICE_CONNECT, or
+	// INTERNAL_HTTPS_LOAD_BALANCER. PRIVATE is the default purpose for
+	// user-created subnets or subnets that are automatically created in
+	// auto mode networks. A subnet with purpose set to
+	// REGIONAL_MANAGED_PROXY is a user-created subnetwork that is reserved
+	// for regional Envoy-based load balancers. A subnet with purpose set to
+	// PRIVATE_SERVICE_CONNECT is used to publish services using Private
+	// Service Connect. A subnet with purpose set to
+	// INTERNAL_HTTPS_LOAD_BALANCER is a proxy-only subnet that can be used
+	// only by regional internal HTTP(S) load balancers. Note that
+	// REGIONAL_MANAGED_PROXY is the preferred setting for all regional
+	// Envoy load balancers. If unspecified, the subnet purpose defaults to
+	// PRIVATE. The enableFlowLogs field isn't supported if the subnet
+	// purpose field is set to REGIONAL_MANAGED_PROXY.
 	//
 	// Possible values:
 	//   "INTERNAL_HTTPS_LOAD_BALANCER" - Subnet reserved for Internal
@@ -55359,9 +57840,9 @@ type UsableSubnetwork struct {
 	Purpose string `json:"purpose,omitempty"`
 
 	// Role: The role of subnetwork. Currently, this field is only used when
-	// purpose = INTERNAL_HTTPS_LOAD_BALANCER. The value can be set to
-	// ACTIVE or BACKUP. An ACTIVE subnetwork is one that is currently being
-	// used for Internal HTTP(S) Load Balancing. A BACKUP subnetwork is one
+	// purpose = REGIONAL_MANAGED_PROXY. The value can be set to ACTIVE or
+	// BACKUP. An ACTIVE subnetwork is one that is currently being used for
+	// Envoy-based load balancers in a region. A BACKUP subnetwork is one
 	// that is ready to be promoted to ACTIVE or is currently draining. This
 	// field can be updated with a patch request.
 	//
@@ -55534,6 +58015,9 @@ type UsableSubnetworksAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -55915,6 +58399,9 @@ type VmEndpointNatMappingsListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -56052,7 +58539,7 @@ type VpnGateway struct {
 	// You must always provide an up-to-date fingerprint hash in order to
 	// update or change labels, otherwise the request will fail with error
 	// 412 conditionNotMet. To see the latest fingerprint, make a get()
-	// request to retrieve an VpnGateway.
+	// request to retrieve a VpnGateway.
 	LabelFingerprint string `json:"labelFingerprint,omitempty"`
 
 	// Labels: Labels for this resource. These can only be added or modified
@@ -56206,6 +58693,9 @@ type VpnGatewayAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -56395,6 +58885,9 @@ type VpnGatewayListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -56590,7 +59083,7 @@ type VpnGatewayStatusTunnel struct {
 
 	// PeerGatewayInterface: The peer gateway interface this VPN tunnel is
 	// connected to, the peer gateway could either be an external VPN
-	// gateway or GCP VPN gateway.
+	// gateway or a Google Cloud VPN gateway.
 	PeerGatewayInterface int64 `json:"peerGatewayInterface,omitempty"`
 
 	// TunnelUrl: URL reference to the VPN tunnel.
@@ -56623,8 +59116,8 @@ func (s *VpnGatewayStatusTunnel) MarshalJSON() ([]byte, error) {
 
 // VpnGatewayStatusVpnConnection: A VPN connection contains all VPN
 // tunnels connected from this VpnGateway to the same peer gateway. The
-// peer gateway could either be a external VPN gateway or GCP VPN
-// gateway.
+// peer gateway could either be an external VPN gateway or a Google
+// Cloud VPN gateway.
 type VpnGatewayStatusVpnConnection struct {
 	// PeerExternalGateway: URL reference to the peer external VPN gateways
 	// to which the VPN tunnels in this VPN connection are connected. This
@@ -56806,6 +59299,9 @@ type VpnGatewaysScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -56940,6 +59436,21 @@ type VpnTunnel struct {
 	// Kind: [Output Only] Type of resource. Always compute#vpnTunnel for
 	// VPN tunnels.
 	Kind string `json:"kind,omitempty"`
+
+	// LabelFingerprint: A fingerprint for the labels being applied to this
+	// VpnTunnel, which is essentially a hash of the labels set used for
+	// optimistic locking. The fingerprint is initially generated by Compute
+	// Engine and changes after every request to modify or update labels.
+	// You must always provide an up-to-date fingerprint hash in order to
+	// update or change labels, otherwise the request will fail with error
+	// 412 conditionNotMet. To see the latest fingerprint, make a get()
+	// request to retrieve a VpnTunnel.
+	LabelFingerprint string `json:"labelFingerprint,omitempty"`
+
+	// Labels: Labels for this resource. These can only be added or modified
+	// by the setLabels method. Each label key/value pair must comply with
+	// RFC1035. Label values may be empty.
+	Labels map[string]string `json:"labels,omitempty"`
 
 	// LocalTrafficSelector: Local traffic selector to use when establishing
 	// the VPN tunnel with the peer VPN gateway. The value should be a CIDR
@@ -57179,6 +59690,9 @@ type VpnTunnelAggregatedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -57368,6 +59882,9 @@ type VpnTunnelListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -57535,6 +60052,9 @@ type VpnTunnelsScopedListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -57688,6 +60208,11 @@ type WafExpressionSetExpression struct {
 	// could also be used to exclude it from the policy in case of false
 	// positive. required
 	Id string `json:"id,omitempty"`
+
+	// Sensitivity: The sensitivity value associated with the WAF rule ID.
+	// This corresponds to the ModSecurity paranoia level, ranging from 1 to
+	// 4. 0 is reserved for opt-in only rules.
+	Sensitivity int64 `json:"sensitivity,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Id") to
 	// unconditionally include in API requests. By default, fields with
@@ -57847,6 +60372,9 @@ type XpnHostListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -58149,6 +60677,9 @@ type ZoneListWarning struct {
 	// HTTP/HTTPS/HTTP2.
 	//   "LARGE_DEPLOYMENT_WARNING" - When deploying a deployment with a
 	// exceedingly large number of resources
+	//   "LIST_OVERHEAD_QUOTA_EXCEED" - Resource can't be retrieved due to
+	// list overhead quota exceed which captures the amount of resources
+	// filtered out by user-defined list filter.
 	//   "MISSING_TYPE_DEPENDENCY" - A resource depends on a missing type
 	//   "NEXT_HOP_ADDRESS_NOT_ASSIGNED" - The route's nextHopIp address is
 	// not assigned to an instance on the network.
@@ -60207,6 +62738,194 @@ func (c *AddressesListCall) Pages(ctx context.Context, f func(*AddressList) erro
 	}
 }
 
+// method id "compute.addresses.move":
+
+type AddressesMoveCall struct {
+	s                          *Service
+	project                    string
+	region                     string
+	address                    string
+	regionaddressesmoverequest *RegionAddressesMoveRequest
+	urlParams_                 gensupport.URLParams
+	ctx_                       context.Context
+	header_                    http.Header
+}
+
+// Move: Moves the specified address resource.
+//
+// - address: Name of the address resource to move.
+// - project: Source project ID which the Address is moved from.
+// - region: Name of the region for this request.
+func (r *AddressesService) Move(project string, region string, address string, regionaddressesmoverequest *RegionAddressesMoveRequest) *AddressesMoveCall {
+	c := &AddressesMoveCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.region = region
+	c.address = address
+	c.regionaddressesmoverequest = regionaddressesmoverequest
+	return c
+}
+
+// RequestId sets the optional parameter "requestId": An optional
+// request ID to identify requests. Specify a unique request ID so that
+// if you must retry your request, the server will know to ignore the
+// request if it has already been completed. For example, consider a
+// situation where you make an initial request and the request times
+// out. If you make the request again with the same request ID, the
+// server can check if original operation with the same request ID was
+// received, and if so, will ignore the second request. This prevents
+// clients from accidentally creating duplicate commitments. The request
+// ID must be a valid UUID with the exception that zero UUID is not
+// supported ( 00000000-0000-0000-0000-000000000000).
+func (c *AddressesMoveCall) RequestId(requestId string) *AddressesMoveCall {
+	c.urlParams_.Set("requestId", requestId)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *AddressesMoveCall) Fields(s ...googleapi.Field) *AddressesMoveCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *AddressesMoveCall) Context(ctx context.Context) *AddressesMoveCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *AddressesMoveCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *AddressesMoveCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.regionaddressesmoverequest)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/regions/{region}/addresses/{address}/move")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project": c.project,
+		"region":  c.region,
+		"address": c.address,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.addresses.move" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *AddressesMoveCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Moves the specified address resource.",
+	//   "flatPath": "projects/{project}/regions/{region}/addresses/{address}/move",
+	//   "httpMethod": "POST",
+	//   "id": "compute.addresses.move",
+	//   "parameterOrder": [
+	//     "project",
+	//     "region",
+	//     "address"
+	//   ],
+	//   "parameters": {
+	//     "address": {
+	//       "description": "Name of the address resource to move.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?|[1-9][0-9]{0,19}",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "project": {
+	//       "description": "Source project ID which the Address is moved from.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "region": {
+	//       "description": "Name of the region for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "requestId": {
+	//       "description": "An optional request ID to identify requests. Specify a unique request ID so that if you must retry your request, the server will know to ignore the request if it has already been completed. For example, consider a situation where you make an initial request and the request times out. If you make the request again with the same request ID, the server can check if original operation with the same request ID was received, and if so, will ignore the second request. This prevents clients from accidentally creating duplicate commitments. The request ID must be a valid UUID with the exception that zero UUID is not supported ( 00000000-0000-0000-0000-000000000000).",
+	//       "location": "query",
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/regions/{region}/addresses/{address}/move",
+	//   "request": {
+	//     "$ref": "RegionAddressesMoveRequest"
+	//   },
+	//   "response": {
+	//     "$ref": "Operation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute"
+	//   ]
+	// }
+
+}
+
 // method id "compute.addresses.setLabels":
 
 type AddressesSetLabelsCall struct {
@@ -60884,8 +63603,7 @@ type AutoscalersGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified autoscaler resource. Gets a list of
-// available autoscalers by making a list() request.
+// Get: Returns the specified autoscaler resource.
 //
 // - autoscaler: Name of the autoscaler to return.
 // - project: Project ID for this request.
@@ -60999,7 +63717,7 @@ func (c *AutoscalersGetCall) Do(opts ...googleapi.CallOption) (*Autoscaler, erro
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified autoscaler resource. Gets a list of available autoscalers by making a list() request.",
+	//   "description": "Returns the specified autoscaler resource.",
 	//   "flatPath": "projects/{project}/zones/{zone}/autoscalers/{autoscaler}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.autoscalers.get",
@@ -62425,8 +65143,7 @@ type BackendBucketsGetCall struct {
 	header_       http.Header
 }
 
-// Get: Returns the specified BackendBucket resource. Gets a list of
-// available backend buckets by making a list() request.
+// Get: Returns the specified BackendBucket resource.
 //
 // - backendBucket: Name of the BackendBucket resource to return.
 // - project: Project ID for this request.
@@ -62537,7 +65254,7 @@ func (c *BackendBucketsGetCall) Do(opts ...googleapi.CallOption) (*BackendBucket
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified BackendBucket resource. Gets a list of available backend buckets by making a list() request.",
+	//   "description": "Returns the specified BackendBucket resource.",
 	//   "flatPath": "projects/{project}/global/backendBuckets/{backendBucket}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.backendBuckets.get",
@@ -64380,8 +67097,7 @@ type BackendServicesGetCall struct {
 	header_        http.Header
 }
 
-// Get: Returns the specified BackendService resource. Gets a list of
-// available backend services.
+// Get: Returns the specified BackendService resource.
 //
 // - backendService: Name of the BackendService resource to return.
 // - project: Project ID for this request.
@@ -64492,7 +67208,7 @@ func (c *BackendServicesGetCall) Do(opts ...googleapi.CallOption) (*BackendServi
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified BackendService resource. Gets a list of available backend services.",
+	//   "description": "Returns the specified BackendService resource.",
 	//   "flatPath": "projects/{project}/global/backendServices/{backendService}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.backendServices.get",
@@ -66486,8 +69202,7 @@ type DiskTypesGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified disk type. Gets a list of available disk
-// types by making a list() request.
+// Get: Returns the specified disk type.
 //
 // - diskType: Name of the disk type to return.
 // - project: Project ID for this request.
@@ -66601,7 +69316,7 @@ func (c *DiskTypesGetCall) Do(opts ...googleapi.CallOption) (*DiskType, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified disk type. Gets a list of available disk types by making a list() request.",
+	//   "description": "Returns the specified disk type.",
 	//   "flatPath": "projects/{project}/zones/{zone}/diskTypes/{diskType}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.diskTypes.get",
@@ -67425,6 +70140,182 @@ func (c *DisksAggregatedListCall) Pages(ctx context.Context, f func(*DiskAggrega
 	}
 }
 
+// method id "compute.disks.bulkInsert":
+
+type DisksBulkInsertCall struct {
+	s                      *Service
+	project                string
+	zone                   string
+	bulkinsertdiskresource *BulkInsertDiskResource
+	urlParams_             gensupport.URLParams
+	ctx_                   context.Context
+	header_                http.Header
+}
+
+// BulkInsert: Bulk create a set of disks.
+//
+// - project: Project ID for this request.
+// - zone: The name of the zone for this request.
+func (r *DisksService) BulkInsert(project string, zone string, bulkinsertdiskresource *BulkInsertDiskResource) *DisksBulkInsertCall {
+	c := &DisksBulkInsertCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.zone = zone
+	c.bulkinsertdiskresource = bulkinsertdiskresource
+	return c
+}
+
+// RequestId sets the optional parameter "requestId": An optional
+// request ID to identify requests. Specify a unique request ID so that
+// if you must retry your request, the server will know to ignore the
+// request if it has already been completed. For example, consider a
+// situation where you make an initial request and the request times
+// out. If you make the request again with the same request ID, the
+// server can check if original operation with the same request ID was
+// received, and if so, will ignore the second request. This prevents
+// clients from accidentally creating duplicate commitments. The request
+// ID must be a valid UUID with the exception that zero UUID is not
+// supported ( 00000000-0000-0000-0000-000000000000).
+func (c *DisksBulkInsertCall) RequestId(requestId string) *DisksBulkInsertCall {
+	c.urlParams_.Set("requestId", requestId)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *DisksBulkInsertCall) Fields(s ...googleapi.Field) *DisksBulkInsertCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *DisksBulkInsertCall) Context(ctx context.Context) *DisksBulkInsertCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *DisksBulkInsertCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *DisksBulkInsertCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.bulkinsertdiskresource)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/zones/{zone}/disks/bulkInsert")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project": c.project,
+		"zone":    c.zone,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.disks.bulkInsert" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *DisksBulkInsertCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Bulk create a set of disks.",
+	//   "flatPath": "projects/{project}/zones/{zone}/disks/bulkInsert",
+	//   "httpMethod": "POST",
+	//   "id": "compute.disks.bulkInsert",
+	//   "parameterOrder": [
+	//     "project",
+	//     "zone"
+	//   ],
+	//   "parameters": {
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "requestId": {
+	//       "description": "An optional request ID to identify requests. Specify a unique request ID so that if you must retry your request, the server will know to ignore the request if it has already been completed. For example, consider a situation where you make an initial request and the request times out. If you make the request again with the same request ID, the server can check if original operation with the same request ID was received, and if so, will ignore the second request. This prevents clients from accidentally creating duplicate commitments. The request ID must be a valid UUID with the exception that zero UUID is not supported ( 00000000-0000-0000-0000-000000000000).",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "zone": {
+	//       "description": "The name of the zone for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/zones/{zone}/disks/bulkInsert",
+	//   "request": {
+	//     "$ref": "BulkInsertDiskResource"
+	//   },
+	//   "response": {
+	//     "$ref": "Operation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute"
+	//   ]
+	// }
+
+}
+
 // method id "compute.disks.createSnapshot":
 
 type DisksCreateSnapshotCall struct {
@@ -67822,8 +70713,7 @@ type DisksGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns a specified persistent disk. Gets a list of available
-// persistent disks by making a list() request.
+// Get: Returns the specified persistent disk.
 //
 // - disk: Name of the persistent disk to return.
 // - project: Project ID for this request.
@@ -67937,7 +70827,7 @@ func (c *DisksGetCall) Do(opts ...googleapi.CallOption) (*Disk, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns a specified persistent disk. Gets a list of available persistent disks by making a list() request.",
+	//   "description": "Returns the specified persistent disk.",
 	//   "flatPath": "projects/{project}/zones/{zone}/disks/{disk}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.disks.get",
@@ -69387,6 +72277,553 @@ func (c *DisksSetLabelsCall) Do(opts ...googleapi.CallOption) (*Operation, error
 
 }
 
+// method id "compute.disks.startAsyncReplication":
+
+type DisksStartAsyncReplicationCall struct {
+	s                                 *Service
+	project                           string
+	zone                              string
+	disk                              string
+	disksstartasyncreplicationrequest *DisksStartAsyncReplicationRequest
+	urlParams_                        gensupport.URLParams
+	ctx_                              context.Context
+	header_                           http.Header
+}
+
+// StartAsyncReplication: Starts asynchronous replication. Must be
+// invoked on the primary disk.
+//
+// - disk: The name of the persistent disk.
+// - project: Project ID for this request.
+// - zone: The name of the zone for this request.
+func (r *DisksService) StartAsyncReplication(project string, zone string, disk string, disksstartasyncreplicationrequest *DisksStartAsyncReplicationRequest) *DisksStartAsyncReplicationCall {
+	c := &DisksStartAsyncReplicationCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.zone = zone
+	c.disk = disk
+	c.disksstartasyncreplicationrequest = disksstartasyncreplicationrequest
+	return c
+}
+
+// RequestId sets the optional parameter "requestId": An optional
+// request ID to identify requests. Specify a unique request ID so that
+// if you must retry your request, the server will know to ignore the
+// request if it has already been completed. For example, consider a
+// situation where you make an initial request and the request times
+// out. If you make the request again with the same request ID, the
+// server can check if original operation with the same request ID was
+// received, and if so, will ignore the second request. This prevents
+// clients from accidentally creating duplicate commitments. The request
+// ID must be a valid UUID with the exception that zero UUID is not
+// supported ( 00000000-0000-0000-0000-000000000000).
+func (c *DisksStartAsyncReplicationCall) RequestId(requestId string) *DisksStartAsyncReplicationCall {
+	c.urlParams_.Set("requestId", requestId)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *DisksStartAsyncReplicationCall) Fields(s ...googleapi.Field) *DisksStartAsyncReplicationCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *DisksStartAsyncReplicationCall) Context(ctx context.Context) *DisksStartAsyncReplicationCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *DisksStartAsyncReplicationCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *DisksStartAsyncReplicationCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.disksstartasyncreplicationrequest)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/zones/{zone}/disks/{disk}/startAsyncReplication")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project": c.project,
+		"zone":    c.zone,
+		"disk":    c.disk,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.disks.startAsyncReplication" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *DisksStartAsyncReplicationCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Starts asynchronous replication. Must be invoked on the primary disk.",
+	//   "flatPath": "projects/{project}/zones/{zone}/disks/{disk}/startAsyncReplication",
+	//   "httpMethod": "POST",
+	//   "id": "compute.disks.startAsyncReplication",
+	//   "parameterOrder": [
+	//     "project",
+	//     "zone",
+	//     "disk"
+	//   ],
+	//   "parameters": {
+	//     "disk": {
+	//       "description": "The name of the persistent disk.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?|[1-9][0-9]{0,19}",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "requestId": {
+	//       "description": "An optional request ID to identify requests. Specify a unique request ID so that if you must retry your request, the server will know to ignore the request if it has already been completed. For example, consider a situation where you make an initial request and the request times out. If you make the request again with the same request ID, the server can check if original operation with the same request ID was received, and if so, will ignore the second request. This prevents clients from accidentally creating duplicate commitments. The request ID must be a valid UUID with the exception that zero UUID is not supported ( 00000000-0000-0000-0000-000000000000).",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "zone": {
+	//       "description": "The name of the zone for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/zones/{zone}/disks/{disk}/startAsyncReplication",
+	//   "request": {
+	//     "$ref": "DisksStartAsyncReplicationRequest"
+	//   },
+	//   "response": {
+	//     "$ref": "Operation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute"
+	//   ]
+	// }
+
+}
+
+// method id "compute.disks.stopAsyncReplication":
+
+type DisksStopAsyncReplicationCall struct {
+	s          *Service
+	project    string
+	zone       string
+	disk       string
+	urlParams_ gensupport.URLParams
+	ctx_       context.Context
+	header_    http.Header
+}
+
+// StopAsyncReplication: Stops asynchronous replication. Can be invoked
+// either on the primary or on the secondary disk.
+//
+// - disk: The name of the persistent disk.
+// - project: Project ID for this request.
+// - zone: The name of the zone for this request.
+func (r *DisksService) StopAsyncReplication(project string, zone string, disk string) *DisksStopAsyncReplicationCall {
+	c := &DisksStopAsyncReplicationCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.zone = zone
+	c.disk = disk
+	return c
+}
+
+// RequestId sets the optional parameter "requestId": An optional
+// request ID to identify requests. Specify a unique request ID so that
+// if you must retry your request, the server will know to ignore the
+// request if it has already been completed. For example, consider a
+// situation where you make an initial request and the request times
+// out. If you make the request again with the same request ID, the
+// server can check if original operation with the same request ID was
+// received, and if so, will ignore the second request. This prevents
+// clients from accidentally creating duplicate commitments. The request
+// ID must be a valid UUID with the exception that zero UUID is not
+// supported ( 00000000-0000-0000-0000-000000000000).
+func (c *DisksStopAsyncReplicationCall) RequestId(requestId string) *DisksStopAsyncReplicationCall {
+	c.urlParams_.Set("requestId", requestId)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *DisksStopAsyncReplicationCall) Fields(s ...googleapi.Field) *DisksStopAsyncReplicationCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *DisksStopAsyncReplicationCall) Context(ctx context.Context) *DisksStopAsyncReplicationCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *DisksStopAsyncReplicationCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *DisksStopAsyncReplicationCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/zones/{zone}/disks/{disk}/stopAsyncReplication")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project": c.project,
+		"zone":    c.zone,
+		"disk":    c.disk,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.disks.stopAsyncReplication" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *DisksStopAsyncReplicationCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Stops asynchronous replication. Can be invoked either on the primary or on the secondary disk.",
+	//   "flatPath": "projects/{project}/zones/{zone}/disks/{disk}/stopAsyncReplication",
+	//   "httpMethod": "POST",
+	//   "id": "compute.disks.stopAsyncReplication",
+	//   "parameterOrder": [
+	//     "project",
+	//     "zone",
+	//     "disk"
+	//   ],
+	//   "parameters": {
+	//     "disk": {
+	//       "description": "The name of the persistent disk.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?|[1-9][0-9]{0,19}",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "requestId": {
+	//       "description": "An optional request ID to identify requests. Specify a unique request ID so that if you must retry your request, the server will know to ignore the request if it has already been completed. For example, consider a situation where you make an initial request and the request times out. If you make the request again with the same request ID, the server can check if original operation with the same request ID was received, and if so, will ignore the second request. This prevents clients from accidentally creating duplicate commitments. The request ID must be a valid UUID with the exception that zero UUID is not supported ( 00000000-0000-0000-0000-000000000000).",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "zone": {
+	//       "description": "The name of the zone for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/zones/{zone}/disks/{disk}/stopAsyncReplication",
+	//   "response": {
+	//     "$ref": "Operation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute"
+	//   ]
+	// }
+
+}
+
+// method id "compute.disks.stopGroupAsyncReplication":
+
+type DisksStopGroupAsyncReplicationCall struct {
+	s                                      *Service
+	project                                string
+	zone                                   string
+	disksstopgroupasyncreplicationresource *DisksStopGroupAsyncReplicationResource
+	urlParams_                             gensupport.URLParams
+	ctx_                                   context.Context
+	header_                                http.Header
+}
+
+// StopGroupAsyncReplication: Stops asynchronous replication for a
+// consistency group of disks. Can be invoked either in the primary or
+// secondary scope.
+//
+//   - project: Project ID for this request.
+//   - zone: The name of the zone for this request. This must be the zone
+//     of the primary or secondary disks in the consistency group.
+func (r *DisksService) StopGroupAsyncReplication(project string, zone string, disksstopgroupasyncreplicationresource *DisksStopGroupAsyncReplicationResource) *DisksStopGroupAsyncReplicationCall {
+	c := &DisksStopGroupAsyncReplicationCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.zone = zone
+	c.disksstopgroupasyncreplicationresource = disksstopgroupasyncreplicationresource
+	return c
+}
+
+// RequestId sets the optional parameter "requestId": An optional
+// request ID to identify requests. Specify a unique request ID so that
+// if you must retry your request, the server will know to ignore the
+// request if it has already been completed. For example, consider a
+// situation where you make an initial request and the request times
+// out. If you make the request again with the same request ID, the
+// server can check if original operation with the same request ID was
+// received, and if so, will ignore the second request. This prevents
+// clients from accidentally creating duplicate commitments. The request
+// ID must be a valid UUID with the exception that zero UUID is not
+// supported ( 00000000-0000-0000-0000-000000000000).
+func (c *DisksStopGroupAsyncReplicationCall) RequestId(requestId string) *DisksStopGroupAsyncReplicationCall {
+	c.urlParams_.Set("requestId", requestId)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *DisksStopGroupAsyncReplicationCall) Fields(s ...googleapi.Field) *DisksStopGroupAsyncReplicationCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *DisksStopGroupAsyncReplicationCall) Context(ctx context.Context) *DisksStopGroupAsyncReplicationCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *DisksStopGroupAsyncReplicationCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *DisksStopGroupAsyncReplicationCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.disksstopgroupasyncreplicationresource)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/zones/{zone}/disks/stopGroupAsyncReplication")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project": c.project,
+		"zone":    c.zone,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.disks.stopGroupAsyncReplication" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *DisksStopGroupAsyncReplicationCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Stops asynchronous replication for a consistency group of disks. Can be invoked either in the primary or secondary scope.",
+	//   "flatPath": "projects/{project}/zones/{zone}/disks/stopGroupAsyncReplication",
+	//   "httpMethod": "POST",
+	//   "id": "compute.disks.stopGroupAsyncReplication",
+	//   "parameterOrder": [
+	//     "project",
+	//     "zone"
+	//   ],
+	//   "parameters": {
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "requestId": {
+	//       "description": "An optional request ID to identify requests. Specify a unique request ID so that if you must retry your request, the server will know to ignore the request if it has already been completed. For example, consider a situation where you make an initial request and the request times out. If you make the request again with the same request ID, the server can check if original operation with the same request ID was received, and if so, will ignore the second request. This prevents clients from accidentally creating duplicate commitments. The request ID must be a valid UUID with the exception that zero UUID is not supported ( 00000000-0000-0000-0000-000000000000).",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "zone": {
+	//       "description": "The name of the zone for this request. This must be the zone of the primary or secondary disks in the consistency group.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/zones/{zone}/disks/stopGroupAsyncReplication",
+	//   "request": {
+	//     "$ref": "DisksStopGroupAsyncReplicationResource"
+	//   },
+	//   "response": {
+	//     "$ref": "Operation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute"
+	//   ]
+	// }
+
+}
+
 // method id "compute.disks.testIamPermissions":
 
 type DisksTestIamPermissionsCall struct {
@@ -69551,6 +72988,221 @@ func (c *DisksTestIamPermissionsCall) Do(opts ...googleapi.CallOption) (*TestPer
 	//     "https://www.googleapis.com/auth/cloud-platform",
 	//     "https://www.googleapis.com/auth/compute",
 	//     "https://www.googleapis.com/auth/compute.readonly"
+	//   ]
+	// }
+
+}
+
+// method id "compute.disks.update":
+
+type DisksUpdateCall struct {
+	s          *Service
+	project    string
+	zone       string
+	disk       string
+	disk2      *Disk
+	urlParams_ gensupport.URLParams
+	ctx_       context.Context
+	header_    http.Header
+}
+
+// Update: Updates the specified disk with the data included in the
+// request. The update is performed only on selected fields included as
+// part of update-mask. Only the following fields can be modified:
+// user_license.
+//
+// - disk: The disk name for this request.
+// - project: Project ID for this request.
+// - zone: The name of the zone for this request.
+func (r *DisksService) Update(project string, zone string, disk string, disk2 *Disk) *DisksUpdateCall {
+	c := &DisksUpdateCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.zone = zone
+	c.disk = disk
+	c.disk2 = disk2
+	return c
+}
+
+// Paths sets the optional parameter "paths":
+func (c *DisksUpdateCall) Paths(paths ...string) *DisksUpdateCall {
+	c.urlParams_.SetMulti("paths", append([]string{}, paths...))
+	return c
+}
+
+// RequestId sets the optional parameter "requestId": An optional
+// request ID to identify requests. Specify a unique request ID so that
+// if you must retry your request, the server will know to ignore the
+// request if it has already been completed. For example, consider a
+// situation where you make an initial request and the request times
+// out. If you make the request again with the same request ID, the
+// server can check if original operation with the same request ID was
+// received, and if so, will ignore the second request. This prevents
+// clients from accidentally creating duplicate commitments. The request
+// ID must be a valid UUID with the exception that zero UUID is not
+// supported ( 00000000-0000-0000-0000-000000000000).
+func (c *DisksUpdateCall) RequestId(requestId string) *DisksUpdateCall {
+	c.urlParams_.Set("requestId", requestId)
+	return c
+}
+
+// UpdateMask sets the optional parameter "updateMask": update_mask
+// indicates fields to be updated as part of this request.
+func (c *DisksUpdateCall) UpdateMask(updateMask string) *DisksUpdateCall {
+	c.urlParams_.Set("updateMask", updateMask)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *DisksUpdateCall) Fields(s ...googleapi.Field) *DisksUpdateCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *DisksUpdateCall) Context(ctx context.Context) *DisksUpdateCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *DisksUpdateCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *DisksUpdateCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.disk2)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/zones/{zone}/disks/{disk}")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("PATCH", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project": c.project,
+		"zone":    c.zone,
+		"disk":    c.disk,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.disks.update" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *DisksUpdateCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Updates the specified disk with the data included in the request. The update is performed only on selected fields included as part of update-mask. Only the following fields can be modified: user_license.",
+	//   "flatPath": "projects/{project}/zones/{zone}/disks/{disk}",
+	//   "httpMethod": "PATCH",
+	//   "id": "compute.disks.update",
+	//   "parameterOrder": [
+	//     "project",
+	//     "zone",
+	//     "disk"
+	//   ],
+	//   "parameters": {
+	//     "disk": {
+	//       "description": "The disk name for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?|[1-9][0-9]{0,19}",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "paths": {
+	//       "location": "query",
+	//       "repeated": true,
+	//       "type": "string"
+	//     },
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "requestId": {
+	//       "description": "An optional request ID to identify requests. Specify a unique request ID so that if you must retry your request, the server will know to ignore the request if it has already been completed. For example, consider a situation where you make an initial request and the request times out. If you make the request again with the same request ID, the server can check if original operation with the same request ID was received, and if so, will ignore the second request. This prevents clients from accidentally creating duplicate commitments. The request ID must be a valid UUID with the exception that zero UUID is not supported ( 00000000-0000-0000-0000-000000000000).",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "updateMask": {
+	//       "description": "update_mask indicates fields to be updated as part of this request.",
+	//       "format": "google-fieldmask",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "zone": {
+	//       "description": "The name of the zone for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/zones/{zone}/disks/{disk}",
+	//   "request": {
+	//     "$ref": "Disk"
+	//   },
+	//   "response": {
+	//     "$ref": "Operation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute"
 	//   ]
 	// }
 
@@ -72191,7 +75843,9 @@ func (c *FirewallPoliciesListCall) PageToken(pageToken string) *FirewallPolicies
 }
 
 // ParentId sets the optional parameter "parentId": Parent ID for this
-// request.
+// request. The ID can be either be "folders/[FOLDER_ID]" if the parent
+// is a folder or "organizations/[ORGANIZATION_ID]" if the parent is an
+// organization.
 func (c *FirewallPoliciesListCall) ParentId(parentId string) *FirewallPoliciesListCall {
 	c.urlParams_.Set("parentId", parentId)
 	return c
@@ -72331,7 +75985,7 @@ func (c *FirewallPoliciesListCall) Do(opts ...googleapi.CallOption) (*FirewallPo
 	//       "type": "string"
 	//     },
 	//     "parentId": {
-	//       "description": "Parent ID for this request.",
+	//       "description": "Parent ID for this request. The ID can be either be \"folders/[FOLDER_ID]\" if the parent is a folder or \"organizations/[ORGANIZATION_ID]\" if the parent is an organization.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -72542,7 +76196,9 @@ func (r *FirewallPoliciesService) Move(firewallPolicy string) *FirewallPoliciesM
 }
 
 // ParentId sets the optional parameter "parentId": The new parent of
-// the firewall policy.
+// the firewall policy. The ID can be either be "folders/[FOLDER_ID]" if
+// the parent is a folder or "organizations/[ORGANIZATION_ID]" if the
+// parent is an organization.
 func (c *FirewallPoliciesMoveCall) ParentId(parentId string) *FirewallPoliciesMoveCall {
 	c.urlParams_.Set("parentId", parentId)
 	return c
@@ -72666,7 +76322,7 @@ func (c *FirewallPoliciesMoveCall) Do(opts ...googleapi.CallOption) (*Operation,
 	//       "type": "string"
 	//     },
 	//     "parentId": {
-	//       "description": "The new parent of the firewall policy.",
+	//       "description": "The new parent of the firewall policy. The ID can be either be \"folders/[FOLDER_ID]\" if the parent is a folder or \"organizations/[ORGANIZATION_ID]\" if the parent is an organization.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -76645,8 +80301,7 @@ type GlobalAddressesGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified address resource. Gets a list of available
-// addresses by making a list() request.
+// Get: Returns the specified address resource.
 //
 // - address: Name of the address resource to return.
 // - project: Project ID for this request.
@@ -76757,7 +80412,7 @@ func (c *GlobalAddressesGetCall) Do(opts ...googleapi.CallOption) (*Address, err
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified address resource. Gets a list of available addresses by making a list() request.",
+	//   "description": "Returns the specified address resource.",
 	//   "flatPath": "projects/{project}/global/addresses/{address}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.globalAddresses.get",
@@ -77236,6 +80891,183 @@ func (c *GlobalAddressesListCall) Pages(ctx context.Context, f func(*AddressList
 		}
 		c.PageToken(x.NextPageToken)
 	}
+}
+
+// method id "compute.globalAddresses.move":
+
+type GlobalAddressesMoveCall struct {
+	s                          *Service
+	project                    string
+	address                    string
+	globaladdressesmoverequest *GlobalAddressesMoveRequest
+	urlParams_                 gensupport.URLParams
+	ctx_                       context.Context
+	header_                    http.Header
+}
+
+// Move: Moves the specified address resource from one project to
+// another project.
+//
+// - address: Name of the address resource to move.
+// - project: Source project ID which the Address is moved from.
+func (r *GlobalAddressesService) Move(project string, address string, globaladdressesmoverequest *GlobalAddressesMoveRequest) *GlobalAddressesMoveCall {
+	c := &GlobalAddressesMoveCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.address = address
+	c.globaladdressesmoverequest = globaladdressesmoverequest
+	return c
+}
+
+// RequestId sets the optional parameter "requestId": An optional
+// request ID to identify requests. Specify a unique request ID so that
+// if you must retry your request, the server will know to ignore the
+// request if it has already been completed. For example, consider a
+// situation where you make an initial request and the request times
+// out. If you make the request again with the same request ID, the
+// server can check if original operation with the same request ID was
+// received, and if so, will ignore the second request. This prevents
+// clients from accidentally creating duplicate commitments. The request
+// ID must be a valid UUID with the exception that zero UUID is not
+// supported ( 00000000-0000-0000-0000-000000000000).
+func (c *GlobalAddressesMoveCall) RequestId(requestId string) *GlobalAddressesMoveCall {
+	c.urlParams_.Set("requestId", requestId)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *GlobalAddressesMoveCall) Fields(s ...googleapi.Field) *GlobalAddressesMoveCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *GlobalAddressesMoveCall) Context(ctx context.Context) *GlobalAddressesMoveCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *GlobalAddressesMoveCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *GlobalAddressesMoveCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.globaladdressesmoverequest)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/global/addresses/{address}/move")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project": c.project,
+		"address": c.address,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.globalAddresses.move" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *GlobalAddressesMoveCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Moves the specified address resource from one project to another project.",
+	//   "flatPath": "projects/{project}/global/addresses/{address}/move",
+	//   "httpMethod": "POST",
+	//   "id": "compute.globalAddresses.move",
+	//   "parameterOrder": [
+	//     "project",
+	//     "address"
+	//   ],
+	//   "parameters": {
+	//     "address": {
+	//       "description": "Name of the address resource to move.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?|[1-9][0-9]{0,19}",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "project": {
+	//       "description": "Source project ID which the Address is moved from.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "requestId": {
+	//       "description": "An optional request ID to identify requests. Specify a unique request ID so that if you must retry your request, the server will know to ignore the request if it has already been completed. For example, consider a situation where you make an initial request and the request times out. If you make the request again with the same request ID, the server can check if original operation with the same request ID was received, and if so, will ignore the second request. This prevents clients from accidentally creating duplicate commitments. The request ID must be a valid UUID with the exception that zero UUID is not supported ( 00000000-0000-0000-0000-000000000000).",
+	//       "location": "query",
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/global/addresses/{address}/move",
+	//   "request": {
+	//     "$ref": "GlobalAddressesMoveRequest"
+	//   },
+	//   "response": {
+	//     "$ref": "Operation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute"
+	//   ]
+	// }
+
 }
 
 // method id "compute.globalAddresses.setLabels":
@@ -79213,8 +83045,7 @@ type GlobalNetworkEndpointGroupsGetCall struct {
 	header_              http.Header
 }
 
-// Get: Returns the specified network endpoint group. Gets a list of
-// available network endpoint groups by making a list() request.
+// Get: Returns the specified network endpoint group.
 //
 //   - networkEndpointGroup: The name of the network endpoint group. It
 //     should comply with RFC1035.
@@ -79326,7 +83157,7 @@ func (c *GlobalNetworkEndpointGroupsGetCall) Do(opts ...googleapi.CallOption) (*
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified network endpoint group. Gets a list of available network endpoint groups by making a list() request.",
+	//   "description": "Returns the specified network endpoint group.",
 	//   "flatPath": "projects/{project}/global/networkEndpointGroups/{networkEndpointGroup}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.globalNetworkEndpointGroups.get",
@@ -83079,8 +86910,7 @@ type HealthChecksGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified HealthCheck resource. Gets a list of
-// available health checks by making a list() request.
+// Get: Returns the specified HealthCheck resource.
 //
 // - healthCheck: Name of the HealthCheck resource to return.
 // - project: Project ID for this request.
@@ -83191,7 +87021,7 @@ func (c *HealthChecksGetCall) Do(opts ...googleapi.CallOption) (*HealthCheck, er
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified HealthCheck resource. Gets a list of available health checks by making a list() request.",
+	//   "description": "Returns the specified HealthCheck resource.",
 	//   "flatPath": "projects/{project}/global/healthChecks/{healthCheck}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.healthChecks.get",
@@ -84206,8 +88036,7 @@ type HttpHealthChecksGetCall struct {
 	header_         http.Header
 }
 
-// Get: Returns the specified HttpHealthCheck resource. Gets a list of
-// available HTTP health checks by making a list() request.
+// Get: Returns the specified HttpHealthCheck resource.
 //
 // - httpHealthCheck: Name of the HttpHealthCheck resource to return.
 // - project: Project ID for this request.
@@ -84318,7 +88147,7 @@ func (c *HttpHealthChecksGetCall) Do(opts ...googleapi.CallOption) (*HttpHealthC
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified HttpHealthCheck resource. Gets a list of available HTTP health checks by making a list() request.",
+	//   "description": "Returns the specified HttpHealthCheck resource.",
 	//   "flatPath": "projects/{project}/global/httpHealthChecks/{httpHealthCheck}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.httpHealthChecks.get",
@@ -85333,8 +89162,7 @@ type HttpsHealthChecksGetCall struct {
 	header_          http.Header
 }
 
-// Get: Returns the specified HttpsHealthCheck resource. Gets a list of
-// available HTTPS health checks by making a list() request.
+// Get: Returns the specified HttpsHealthCheck resource.
 //
 // - httpsHealthCheck: Name of the HttpsHealthCheck resource to return.
 // - project: Project ID for this request.
@@ -85445,7 +89273,7 @@ func (c *HttpsHealthChecksGetCall) Do(opts ...googleapi.CallOption) (*HttpsHealt
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified HttpsHealthCheck resource. Gets a list of available HTTPS health checks by making a list() request.",
+	//   "description": "Returns the specified HttpsHealthCheck resource.",
 	//   "flatPath": "projects/{project}/global/httpsHealthChecks/{httpsHealthCheck}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.httpsHealthChecks.get",
@@ -86810,8 +90638,7 @@ type ImagesGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified image. Gets a list of available images by
-// making a list() request.
+// Get: Returns the specified image.
 //
 // - image: Name of the image resource to return.
 // - project: Project ID for this request.
@@ -86922,7 +90749,7 @@ func (c *ImagesGetCall) Do(opts ...googleapi.CallOption) (*Image, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified image. Gets a list of available images by making a list() request.",
+	//   "description": "Returns the specified image.",
 	//   "flatPath": "projects/{project}/global/images/{image}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.images.get",
@@ -86972,10 +90799,12 @@ type ImagesGetFromFamilyCall struct {
 }
 
 // GetFromFamily: Returns the latest image that is part of an image
-// family and is not deprecated.
+// family and is not deprecated. For more information on image families,
+// see Public image families documentation.
 //
-// - family: Name of the image family to search for.
-// - project: Project ID for this request.
+//   - family: Name of the image family to search for.
+//   - project: The image project that the image belongs to. For example,
+//     to get a CentOS image, specify centos-cloud as the image project.
 func (r *ImagesService) GetFromFamily(project string, family string) *ImagesGetFromFamilyCall {
 	c := &ImagesGetFromFamilyCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
@@ -87083,7 +90912,7 @@ func (c *ImagesGetFromFamilyCall) Do(opts ...googleapi.CallOption) (*Image, erro
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the latest image that is part of an image family and is not deprecated.",
+	//   "description": "Returns the latest image that is part of an image family and is not deprecated. For more information on image families, see Public image families documentation.",
 	//   "flatPath": "projects/{project}/global/images/family/{family}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.images.getFromFamily",
@@ -87100,7 +90929,7 @@ func (c *ImagesGetFromFamilyCall) Do(opts ...googleapi.CallOption) (*Image, erro
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Project ID for this request.",
+	//       "description": "The image project that the image belongs to. For example, to get a CentOS image, specify centos-cloud as the image project.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -89826,8 +93655,7 @@ type InstanceGroupManagersGetCall struct {
 }
 
 // Get: Returns all of the details about the specified managed instance
-// group. Gets a list of available managed instance groups by making a
-// list() request.
+// group.
 //
 //   - instanceGroupManager: The name of the managed instance group.
 //   - project: Project ID for this request.
@@ -89942,7 +93770,7 @@ func (c *InstanceGroupManagersGetCall) Do(opts ...googleapi.CallOption) (*Instan
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns all of the details about the specified managed instance group. Gets a list of available managed instance groups by making a list() request.",
+	//   "description": "Returns all of the details about the specified managed instance group.",
 	//   "flatPath": "projects/{project}/zones/{zone}/instanceGroupManagers/{instanceGroupManager}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.instanceGroupManagers.get",
@@ -94714,6 +98542,304 @@ func (c *InstanceGroupsSetNamedPortsCall) Do(opts ...googleapi.CallOption) (*Ope
 
 }
 
+// method id "compute.instanceTemplates.aggregatedList":
+
+type InstanceTemplatesAggregatedListCall struct {
+	s            *Service
+	project      string
+	urlParams_   gensupport.URLParams
+	ifNoneMatch_ string
+	ctx_         context.Context
+	header_      http.Header
+}
+
+// AggregatedList: Retrieves the list of all InstanceTemplates
+// resources, regional and global, available to the specified project.
+//
+// - project: Name of the project scoping this request.
+func (r *InstanceTemplatesService) AggregatedList(project string) *InstanceTemplatesAggregatedListCall {
+	c := &InstanceTemplatesAggregatedListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	return c
+}
+
+// Filter sets the optional parameter "filter": A filter expression that
+// filters resources listed in the response. Most Compute resources
+// support two types of filter expressions: expressions that support
+// regular expressions and expressions that follow API improvement
+// proposal AIP-160. If you want to use AIP-160, your expression must
+// specify the field name, an operator, and the value that you want to
+// use for filtering. The value must be a string, a number, or a
+// boolean. The operator must be either `=`, `!=`, `>`, `<`, `<=`, `>=`
+// or `:`. For example, if you are filtering Compute Engine instances,
+// you can exclude instances named `example-instance` by specifying
+// `name != example-instance`. The `:` operator can be used with string
+// fields to match substrings. For non-string fields it is equivalent to
+// the `=` operator. The `:*` comparison can be used to test whether a
+// key has been defined. For example, to find all objects with `owner`
+// label use: ``` labels.owner:* ``` You can also filter nested fields.
+// For example, you could specify `scheduling.automaticRestart = false`
+// to include instances only if they are not scheduled for automatic
+// restarts. You can use filtering on nested fields to filter based on
+// resource labels. To filter on multiple expressions, provide each
+// separate expression within parentheses. For example: ```
+// (scheduling.automaticRestart = true) (cpuPlatform = "Intel Skylake")
+// ``` By default, each expression is an `AND` expression. However, you
+// can include `AND` and `OR` expressions explicitly. For example: ```
+// (cpuPlatform = "Intel Skylake") OR (cpuPlatform = "Intel Broadwell")
+// AND (scheduling.automaticRestart = true) ``` If you want to use a
+// regular expression, use the `eq` (equal) or `ne` (not equal) operator
+// against a single un-parenthesized expression with or without quotes
+// or against multiple parenthesized expressions. Examples: `fieldname
+// eq unquoted literal` `fieldname eq 'single quoted literal'`
+// `fieldname eq "double quoted literal" `(fieldname1 eq literal)
+// (fieldname2 ne "literal")` The literal value is interpreted as a
+// regular expression using Google RE2 library syntax. The literal value
+// must match the entire field. For example, to filter for instances
+// that do not end with name "instance", you would use `name ne
+// .*instance`.
+func (c *InstanceTemplatesAggregatedListCall) Filter(filter string) *InstanceTemplatesAggregatedListCall {
+	c.urlParams_.Set("filter", filter)
+	return c
+}
+
+// IncludeAllScopes sets the optional parameter "includeAllScopes":
+// Indicates whether every visible scope for each scope type (zone,
+// region, global) should be included in the response. For new resource
+// types added after this field, the flag has no effect as new resource
+// types will always include every visible scope for each scope type in
+// response. For resource types which predate this field, if this flag
+// is omitted or false, only scopes of the scope types where the
+// resource type is expected to be found will be included.
+func (c *InstanceTemplatesAggregatedListCall) IncludeAllScopes(includeAllScopes bool) *InstanceTemplatesAggregatedListCall {
+	c.urlParams_.Set("includeAllScopes", fmt.Sprint(includeAllScopes))
+	return c
+}
+
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that should be returned. If the number of
+// available results is larger than `maxResults`, Compute Engine returns
+// a `nextPageToken` that can be used to get the next page of results in
+// subsequent list requests. Acceptable values are `0` to `500`,
+// inclusive. (Default: `500`)
+func (c *InstanceTemplatesAggregatedListCall) MaxResults(maxResults int64) *InstanceTemplatesAggregatedListCall {
+	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
+	return c
+}
+
+// OrderBy sets the optional parameter "orderBy": Sorts list results by
+// a certain order. By default, results are returned in alphanumerical
+// order based on the resource name. You can also sort results in
+// descending order based on the creation timestamp using
+// `orderBy="creationTimestamp desc". This sorts results based on the
+// `creationTimestamp` field in reverse chronological order (newest
+// result first). Use this to sort resources like operations so that the
+// newest operation is returned first. Currently, only sorting by `name`
+// or `creationTimestamp desc` is supported.
+func (c *InstanceTemplatesAggregatedListCall) OrderBy(orderBy string) *InstanceTemplatesAggregatedListCall {
+	c.urlParams_.Set("orderBy", orderBy)
+	return c
+}
+
+// PageToken sets the optional parameter "pageToken": Specifies a page
+// token to use. Set `pageToken` to the `nextPageToken` returned by a
+// previous list request to get the next page of results.
+func (c *InstanceTemplatesAggregatedListCall) PageToken(pageToken string) *InstanceTemplatesAggregatedListCall {
+	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// ReturnPartialSuccess sets the optional parameter
+// "returnPartialSuccess": Opt-in for partial success behavior which
+// provides partial results in case of failure. The default value is
+// false.
+func (c *InstanceTemplatesAggregatedListCall) ReturnPartialSuccess(returnPartialSuccess bool) *InstanceTemplatesAggregatedListCall {
+	c.urlParams_.Set("returnPartialSuccess", fmt.Sprint(returnPartialSuccess))
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *InstanceTemplatesAggregatedListCall) Fields(s ...googleapi.Field) *InstanceTemplatesAggregatedListCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// IfNoneMatch sets the optional parameter which makes the operation
+// fail if the object's ETag matches the given value. This is useful for
+// getting updates only after the object has changed since the last
+// request. Use googleapi.IsNotModified to check whether the response
+// error from Do is the result of In-None-Match.
+func (c *InstanceTemplatesAggregatedListCall) IfNoneMatch(entityTag string) *InstanceTemplatesAggregatedListCall {
+	c.ifNoneMatch_ = entityTag
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *InstanceTemplatesAggregatedListCall) Context(ctx context.Context) *InstanceTemplatesAggregatedListCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *InstanceTemplatesAggregatedListCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *InstanceTemplatesAggregatedListCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	if c.ifNoneMatch_ != "" {
+		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
+	}
+	var body io.Reader = nil
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/aggregated/instanceTemplates")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("GET", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project": c.project,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.instanceTemplates.aggregatedList" call.
+// Exactly one of *InstanceTemplateAggregatedList or error will be
+// non-nil. Any non-2xx status code is an error. Response headers are in
+// either *InstanceTemplateAggregatedList.ServerResponse.Header or (if a
+// response was returned at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was
+// because http.StatusNotModified was returned.
+func (c *InstanceTemplatesAggregatedListCall) Do(opts ...googleapi.CallOption) (*InstanceTemplateAggregatedList, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &InstanceTemplateAggregatedList{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Retrieves the list of all InstanceTemplates resources, regional and global, available to the specified project.",
+	//   "flatPath": "projects/{project}/aggregated/instanceTemplates",
+	//   "httpMethod": "GET",
+	//   "id": "compute.instanceTemplates.aggregatedList",
+	//   "parameterOrder": [
+	//     "project"
+	//   ],
+	//   "parameters": {
+	//     "filter": {
+	//       "description": "A filter expression that filters resources listed in the response. Most Compute resources support two types of filter expressions: expressions that support regular expressions and expressions that follow API improvement proposal AIP-160. If you want to use AIP-160, your expression must specify the field name, an operator, and the value that you want to use for filtering. The value must be a string, a number, or a boolean. The operator must be either `=`, `!=`, `\u003e`, `\u003c`, `\u003c=`, `\u003e=` or `:`. For example, if you are filtering Compute Engine instances, you can exclude instances named `example-instance` by specifying `name != example-instance`. The `:` operator can be used with string fields to match substrings. For non-string fields it is equivalent to the `=` operator. The `:*` comparison can be used to test whether a key has been defined. For example, to find all objects with `owner` label use: ``` labels.owner:* ``` You can also filter nested fields. For example, you could specify `scheduling.automaticRestart = false` to include instances only if they are not scheduled for automatic restarts. You can use filtering on nested fields to filter based on resource labels. To filter on multiple expressions, provide each separate expression within parentheses. For example: ``` (scheduling.automaticRestart = true) (cpuPlatform = \"Intel Skylake\") ``` By default, each expression is an `AND` expression. However, you can include `AND` and `OR` expressions explicitly. For example: ``` (cpuPlatform = \"Intel Skylake\") OR (cpuPlatform = \"Intel Broadwell\") AND (scheduling.automaticRestart = true) ``` If you want to use a regular expression, use the `eq` (equal) or `ne` (not equal) operator against a single un-parenthesized expression with or without quotes or against multiple parenthesized expressions. Examples: `fieldname eq unquoted literal` `fieldname eq 'single quoted literal'` `fieldname eq \"double quoted literal\"` `(fieldname1 eq literal) (fieldname2 ne \"literal\")` The literal value is interpreted as a regular expression using Google RE2 library syntax. The literal value must match the entire field. For example, to filter for instances that do not end with name \"instance\", you would use `name ne .*instance`.",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "includeAllScopes": {
+	//       "description": "Indicates whether every visible scope for each scope type (zone, region, global) should be included in the response. For new resource types added after this field, the flag has no effect as new resource types will always include every visible scope for each scope type in response. For resource types which predate this field, if this flag is omitted or false, only scopes of the scope types where the resource type is expected to be found will be included.",
+	//       "location": "query",
+	//       "type": "boolean"
+	//     },
+	//     "maxResults": {
+	//       "default": "500",
+	//       "description": "The maximum number of results per page that should be returned. If the number of available results is larger than `maxResults`, Compute Engine returns a `nextPageToken` that can be used to get the next page of results in subsequent list requests. Acceptable values are `0` to `500`, inclusive. (Default: `500`)",
+	//       "format": "uint32",
+	//       "location": "query",
+	//       "minimum": "0",
+	//       "type": "integer"
+	//     },
+	//     "orderBy": {
+	//       "description": "Sorts list results by a certain order. By default, results are returned in alphanumerical order based on the resource name. You can also sort results in descending order based on the creation timestamp using `orderBy=\"creationTimestamp desc\"`. This sorts results based on the `creationTimestamp` field in reverse chronological order (newest result first). Use this to sort resources like operations so that the newest operation is returned first. Currently, only sorting by `name` or `creationTimestamp desc` is supported.",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "pageToken": {
+	//       "description": "Specifies a page token to use. Set `pageToken` to the `nextPageToken` returned by a previous list request to get the next page of results.",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "project": {
+	//       "description": "Name of the project scoping this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "returnPartialSuccess": {
+	//       "description": "Opt-in for partial success behavior which provides partial results in case of failure. The default value is false.",
+	//       "location": "query",
+	//       "type": "boolean"
+	//     }
+	//   },
+	//   "path": "projects/{project}/aggregated/instanceTemplates",
+	//   "response": {
+	//     "$ref": "InstanceTemplateAggregatedList"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute",
+	//     "https://www.googleapis.com/auth/compute.readonly"
+	//   ]
+	// }
+
+}
+
+// Pages invokes f for each page of results.
+// A non-nil error returned from f will halt the iteration.
+// The provided context supersedes any context provided to the Context method.
+func (c *InstanceTemplatesAggregatedListCall) Pages(ctx context.Context, f func(*InstanceTemplateAggregatedList) error) error {
+	c.ctx_ = ctx
+	defer c.PageToken(c.urlParams_.Get("pageToken")) // reset paging to original point
+	for {
+		x, err := c.Do()
+		if err != nil {
+			return err
+		}
+		if err := f(x); err != nil {
+			return err
+		}
+		if x.NextPageToken == "" {
+			return nil
+		}
+		c.PageToken(x.NextPageToken)
+	}
+}
+
 // method id "compute.instanceTemplates.delete":
 
 type InstanceTemplatesDeleteCall struct {
@@ -94894,8 +99020,7 @@ type InstanceTemplatesGetCall struct {
 	header_          http.Header
 }
 
-// Get: Returns the specified instance template. Gets a list of
-// available instance templates by making a list() request.
+// Get: Returns the specified instance template.
 //
 // - instanceTemplate: The name of the instance template.
 // - project: Project ID for this request.
@@ -95006,7 +99131,7 @@ func (c *InstanceTemplatesGetCall) Do(opts ...googleapi.CallOption) (*InstanceTe
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified instance template. Gets a list of available instance templates by making a list() request.",
+	//   "description": "Returns the specified instance template.",
 	//   "flatPath": "projects/{project}/global/instanceTemplates/{instanceTemplate}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.instanceTemplates.get",
@@ -97628,8 +101753,7 @@ type InstancesGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified Instance resource. Gets a list of
-// available instances by making a list() request.
+// Get: Returns the specified Instance resource.
 //
 // - instance: Name of the instance resource to return.
 // - project: Project ID for this request.
@@ -97743,7 +101867,7 @@ func (c *InstancesGetCall) Do(opts ...googleapi.CallOption) (*Instance, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified Instance resource. Gets a list of available instances by making a list() request.",
+	//   "description": "Returns the specified Instance resource.",
 	//   "flatPath": "projects/{project}/zones/{zone}/instances/{instance}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.instances.get",
@@ -101908,6 +106032,194 @@ func (c *InstancesSetMinCpuPlatformCall) Do(opts ...googleapi.CallOption) (*Oper
 
 }
 
+// method id "compute.instances.setName":
+
+type InstancesSetNameCall struct {
+	s                       *Service
+	project                 string
+	zone                    string
+	instance                string
+	instancessetnamerequest *InstancesSetNameRequest
+	urlParams_              gensupport.URLParams
+	ctx_                    context.Context
+	header_                 http.Header
+}
+
+// SetName: Sets name of an instance.
+//
+// - instance: The instance name for this request.
+// - project: Project ID for this request.
+// - zone: The name of the zone for this request.
+func (r *InstancesService) SetName(project string, zone string, instance string, instancessetnamerequest *InstancesSetNameRequest) *InstancesSetNameCall {
+	c := &InstancesSetNameCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.zone = zone
+	c.instance = instance
+	c.instancessetnamerequest = instancessetnamerequest
+	return c
+}
+
+// RequestId sets the optional parameter "requestId": An optional
+// request ID to identify requests. Specify a unique request ID so that
+// if you must retry your request, the server will know to ignore the
+// request if it has already been completed. For example, consider a
+// situation where you make an initial request and the request times
+// out. If you make the request again with the same request ID, the
+// server can check if original operation with the same request ID was
+// received, and if so, will ignore the second request. This prevents
+// clients from accidentally creating duplicate commitments. The request
+// ID must be a valid UUID with the exception that zero UUID is not
+// supported ( 00000000-0000-0000-0000-000000000000).
+func (c *InstancesSetNameCall) RequestId(requestId string) *InstancesSetNameCall {
+	c.urlParams_.Set("requestId", requestId)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *InstancesSetNameCall) Fields(s ...googleapi.Field) *InstancesSetNameCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *InstancesSetNameCall) Context(ctx context.Context) *InstancesSetNameCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *InstancesSetNameCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *InstancesSetNameCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.instancessetnamerequest)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/zones/{zone}/instances/{instance}/setName")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project":  c.project,
+		"zone":     c.zone,
+		"instance": c.instance,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.instances.setName" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *InstancesSetNameCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Sets name of an instance.",
+	//   "flatPath": "projects/{project}/zones/{zone}/instances/{instance}/setName",
+	//   "httpMethod": "POST",
+	//   "id": "compute.instances.setName",
+	//   "parameterOrder": [
+	//     "project",
+	//     "zone",
+	//     "instance"
+	//   ],
+	//   "parameters": {
+	//     "instance": {
+	//       "description": "The instance name for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?|[1-9][0-9]{0,19}",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "requestId": {
+	//       "description": "An optional request ID to identify requests. Specify a unique request ID so that if you must retry your request, the server will know to ignore the request if it has already been completed. For example, consider a situation where you make an initial request and the request times out. If you make the request again with the same request ID, the server can check if original operation with the same request ID was received, and if so, will ignore the second request. This prevents clients from accidentally creating duplicate commitments. The request ID must be a valid UUID with the exception that zero UUID is not supported ( 00000000-0000-0000-0000-000000000000).",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "zone": {
+	//       "description": "The name of the zone for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/zones/{zone}/instances/{instance}/setName",
+	//   "request": {
+	//     "$ref": "InstancesSetNameRequest"
+	//   },
+	//   "response": {
+	//     "$ref": "Operation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute"
+	//   ]
+	// }
+
+}
+
 // method id "compute.instances.setScheduling":
 
 type InstancesSetSchedulingCall struct {
@@ -102697,6 +107009,22 @@ func (r *InstancesService) SimulateMaintenanceEvent(project string, zone string,
 	return c
 }
 
+// RequestId sets the optional parameter "requestId": An optional
+// request ID to identify requests. Specify a unique request ID so that
+// if you must retry your request, the server will know to ignore the
+// request if it has already been completed. For example, consider a
+// situation where you make an initial request and the request times
+// out. If you make the request again with the same request ID, the
+// server can check if original operation with the same request ID was
+// received, and if so, will ignore the second request. This prevents
+// clients from accidentally creating duplicate commitments. The request
+// ID must be a valid UUID with the exception that zero UUID is not
+// supported ( 00000000-0000-0000-0000-000000000000).
+func (c *InstancesSimulateMaintenanceEventCall) RequestId(requestId string) *InstancesSimulateMaintenanceEventCall {
+	c.urlParams_.Set("requestId", requestId)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -102807,6 +107135,11 @@ func (c *InstancesSimulateMaintenanceEventCall) Do(opts ...googleapi.CallOption)
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "requestId": {
+	//       "description": "An optional request ID to identify requests. Specify a unique request ID so that if you must retry your request, the server will know to ignore the request if it has already been completed. For example, consider a situation where you make an initial request and the request times out. If you make the request again with the same request ID, the server can check if original operation with the same request ID was received, and if so, will ignore the second request. This prevents clients from accidentally creating duplicate commitments. The request ID must be a valid UUID with the exception that zero UUID is not supported ( 00000000-0000-0000-0000-000000000000).",
+	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "zone": {
@@ -106759,6 +111092,449 @@ func (c *InterconnectLocationsListCall) Pages(ctx context.Context, f func(*Inter
 	}
 }
 
+// method id "compute.interconnectRemoteLocations.get":
+
+type InterconnectRemoteLocationsGetCall struct {
+	s                          *Service
+	project                    string
+	interconnectRemoteLocation string
+	urlParams_                 gensupport.URLParams
+	ifNoneMatch_               string
+	ctx_                       context.Context
+	header_                    http.Header
+}
+
+// Get: Returns the details for the specified interconnect remote
+// location. Gets a list of available interconnect remote locations by
+// making a list() request.
+//
+//   - interconnectRemoteLocation: Name of the interconnect remote
+//     location to return.
+//   - project: Project ID for this request.
+func (r *InterconnectRemoteLocationsService) Get(project string, interconnectRemoteLocation string) *InterconnectRemoteLocationsGetCall {
+	c := &InterconnectRemoteLocationsGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.interconnectRemoteLocation = interconnectRemoteLocation
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *InterconnectRemoteLocationsGetCall) Fields(s ...googleapi.Field) *InterconnectRemoteLocationsGetCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// IfNoneMatch sets the optional parameter which makes the operation
+// fail if the object's ETag matches the given value. This is useful for
+// getting updates only after the object has changed since the last
+// request. Use googleapi.IsNotModified to check whether the response
+// error from Do is the result of In-None-Match.
+func (c *InterconnectRemoteLocationsGetCall) IfNoneMatch(entityTag string) *InterconnectRemoteLocationsGetCall {
+	c.ifNoneMatch_ = entityTag
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *InterconnectRemoteLocationsGetCall) Context(ctx context.Context) *InterconnectRemoteLocationsGetCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *InterconnectRemoteLocationsGetCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *InterconnectRemoteLocationsGetCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	if c.ifNoneMatch_ != "" {
+		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
+	}
+	var body io.Reader = nil
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/global/interconnectRemoteLocations/{interconnectRemoteLocation}")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("GET", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project":                    c.project,
+		"interconnectRemoteLocation": c.interconnectRemoteLocation,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.interconnectRemoteLocations.get" call.
+// Exactly one of *InterconnectRemoteLocation or error will be non-nil.
+// Any non-2xx status code is an error. Response headers are in either
+// *InterconnectRemoteLocation.ServerResponse.Header or (if a response
+// was returned at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was
+// because http.StatusNotModified was returned.
+func (c *InterconnectRemoteLocationsGetCall) Do(opts ...googleapi.CallOption) (*InterconnectRemoteLocation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &InterconnectRemoteLocation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Returns the details for the specified interconnect remote location. Gets a list of available interconnect remote locations by making a list() request.",
+	//   "flatPath": "projects/{project}/global/interconnectRemoteLocations/{interconnectRemoteLocation}",
+	//   "httpMethod": "GET",
+	//   "id": "compute.interconnectRemoteLocations.get",
+	//   "parameterOrder": [
+	//     "project",
+	//     "interconnectRemoteLocation"
+	//   ],
+	//   "parameters": {
+	//     "interconnectRemoteLocation": {
+	//       "description": "Name of the interconnect remote location to return.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?|[1-9][0-9]{0,19}",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/global/interconnectRemoteLocations/{interconnectRemoteLocation}",
+	//   "response": {
+	//     "$ref": "InterconnectRemoteLocation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute",
+	//     "https://www.googleapis.com/auth/compute.readonly"
+	//   ]
+	// }
+
+}
+
+// method id "compute.interconnectRemoteLocations.list":
+
+type InterconnectRemoteLocationsListCall struct {
+	s            *Service
+	project      string
+	urlParams_   gensupport.URLParams
+	ifNoneMatch_ string
+	ctx_         context.Context
+	header_      http.Header
+}
+
+// List: Retrieves the list of interconnect remote locations available
+// to the specified project.
+//
+// - project: Project ID for this request.
+func (r *InterconnectRemoteLocationsService) List(project string) *InterconnectRemoteLocationsListCall {
+	c := &InterconnectRemoteLocationsListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	return c
+}
+
+// Filter sets the optional parameter "filter": A filter expression that
+// filters resources listed in the response. Most Compute resources
+// support two types of filter expressions: expressions that support
+// regular expressions and expressions that follow API improvement
+// proposal AIP-160. If you want to use AIP-160, your expression must
+// specify the field name, an operator, and the value that you want to
+// use for filtering. The value must be a string, a number, or a
+// boolean. The operator must be either `=`, `!=`, `>`, `<`, `<=`, `>=`
+// or `:`. For example, if you are filtering Compute Engine instances,
+// you can exclude instances named `example-instance` by specifying
+// `name != example-instance`. The `:` operator can be used with string
+// fields to match substrings. For non-string fields it is equivalent to
+// the `=` operator. The `:*` comparison can be used to test whether a
+// key has been defined. For example, to find all objects with `owner`
+// label use: ``` labels.owner:* ``` You can also filter nested fields.
+// For example, you could specify `scheduling.automaticRestart = false`
+// to include instances only if they are not scheduled for automatic
+// restarts. You can use filtering on nested fields to filter based on
+// resource labels. To filter on multiple expressions, provide each
+// separate expression within parentheses. For example: ```
+// (scheduling.automaticRestart = true) (cpuPlatform = "Intel Skylake")
+// ``` By default, each expression is an `AND` expression. However, you
+// can include `AND` and `OR` expressions explicitly. For example: ```
+// (cpuPlatform = "Intel Skylake") OR (cpuPlatform = "Intel Broadwell")
+// AND (scheduling.automaticRestart = true) ``` If you want to use a
+// regular expression, use the `eq` (equal) or `ne` (not equal) operator
+// against a single un-parenthesized expression with or without quotes
+// or against multiple parenthesized expressions. Examples: `fieldname
+// eq unquoted literal` `fieldname eq 'single quoted literal'`
+// `fieldname eq "double quoted literal" `(fieldname1 eq literal)
+// (fieldname2 ne "literal")` The literal value is interpreted as a
+// regular expression using Google RE2 library syntax. The literal value
+// must match the entire field. For example, to filter for instances
+// that do not end with name "instance", you would use `name ne
+// .*instance`.
+func (c *InterconnectRemoteLocationsListCall) Filter(filter string) *InterconnectRemoteLocationsListCall {
+	c.urlParams_.Set("filter", filter)
+	return c
+}
+
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that should be returned. If the number of
+// available results is larger than `maxResults`, Compute Engine returns
+// a `nextPageToken` that can be used to get the next page of results in
+// subsequent list requests. Acceptable values are `0` to `500`,
+// inclusive. (Default: `500`)
+func (c *InterconnectRemoteLocationsListCall) MaxResults(maxResults int64) *InterconnectRemoteLocationsListCall {
+	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
+	return c
+}
+
+// OrderBy sets the optional parameter "orderBy": Sorts list results by
+// a certain order. By default, results are returned in alphanumerical
+// order based on the resource name. You can also sort results in
+// descending order based on the creation timestamp using
+// `orderBy="creationTimestamp desc". This sorts results based on the
+// `creationTimestamp` field in reverse chronological order (newest
+// result first). Use this to sort resources like operations so that the
+// newest operation is returned first. Currently, only sorting by `name`
+// or `creationTimestamp desc` is supported.
+func (c *InterconnectRemoteLocationsListCall) OrderBy(orderBy string) *InterconnectRemoteLocationsListCall {
+	c.urlParams_.Set("orderBy", orderBy)
+	return c
+}
+
+// PageToken sets the optional parameter "pageToken": Specifies a page
+// token to use. Set `pageToken` to the `nextPageToken` returned by a
+// previous list request to get the next page of results.
+func (c *InterconnectRemoteLocationsListCall) PageToken(pageToken string) *InterconnectRemoteLocationsListCall {
+	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// ReturnPartialSuccess sets the optional parameter
+// "returnPartialSuccess": Opt-in for partial success behavior which
+// provides partial results in case of failure. The default value is
+// false.
+func (c *InterconnectRemoteLocationsListCall) ReturnPartialSuccess(returnPartialSuccess bool) *InterconnectRemoteLocationsListCall {
+	c.urlParams_.Set("returnPartialSuccess", fmt.Sprint(returnPartialSuccess))
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *InterconnectRemoteLocationsListCall) Fields(s ...googleapi.Field) *InterconnectRemoteLocationsListCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// IfNoneMatch sets the optional parameter which makes the operation
+// fail if the object's ETag matches the given value. This is useful for
+// getting updates only after the object has changed since the last
+// request. Use googleapi.IsNotModified to check whether the response
+// error from Do is the result of In-None-Match.
+func (c *InterconnectRemoteLocationsListCall) IfNoneMatch(entityTag string) *InterconnectRemoteLocationsListCall {
+	c.ifNoneMatch_ = entityTag
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *InterconnectRemoteLocationsListCall) Context(ctx context.Context) *InterconnectRemoteLocationsListCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *InterconnectRemoteLocationsListCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *InterconnectRemoteLocationsListCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	if c.ifNoneMatch_ != "" {
+		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
+	}
+	var body io.Reader = nil
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/global/interconnectRemoteLocations")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("GET", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project": c.project,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.interconnectRemoteLocations.list" call.
+// Exactly one of *InterconnectRemoteLocationList or error will be
+// non-nil. Any non-2xx status code is an error. Response headers are in
+// either *InterconnectRemoteLocationList.ServerResponse.Header or (if a
+// response was returned at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was
+// because http.StatusNotModified was returned.
+func (c *InterconnectRemoteLocationsListCall) Do(opts ...googleapi.CallOption) (*InterconnectRemoteLocationList, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &InterconnectRemoteLocationList{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Retrieves the list of interconnect remote locations available to the specified project.",
+	//   "flatPath": "projects/{project}/global/interconnectRemoteLocations",
+	//   "httpMethod": "GET",
+	//   "id": "compute.interconnectRemoteLocations.list",
+	//   "parameterOrder": [
+	//     "project"
+	//   ],
+	//   "parameters": {
+	//     "filter": {
+	//       "description": "A filter expression that filters resources listed in the response. Most Compute resources support two types of filter expressions: expressions that support regular expressions and expressions that follow API improvement proposal AIP-160. If you want to use AIP-160, your expression must specify the field name, an operator, and the value that you want to use for filtering. The value must be a string, a number, or a boolean. The operator must be either `=`, `!=`, `\u003e`, `\u003c`, `\u003c=`, `\u003e=` or `:`. For example, if you are filtering Compute Engine instances, you can exclude instances named `example-instance` by specifying `name != example-instance`. The `:` operator can be used with string fields to match substrings. For non-string fields it is equivalent to the `=` operator. The `:*` comparison can be used to test whether a key has been defined. For example, to find all objects with `owner` label use: ``` labels.owner:* ``` You can also filter nested fields. For example, you could specify `scheduling.automaticRestart = false` to include instances only if they are not scheduled for automatic restarts. You can use filtering on nested fields to filter based on resource labels. To filter on multiple expressions, provide each separate expression within parentheses. For example: ``` (scheduling.automaticRestart = true) (cpuPlatform = \"Intel Skylake\") ``` By default, each expression is an `AND` expression. However, you can include `AND` and `OR` expressions explicitly. For example: ``` (cpuPlatform = \"Intel Skylake\") OR (cpuPlatform = \"Intel Broadwell\") AND (scheduling.automaticRestart = true) ``` If you want to use a regular expression, use the `eq` (equal) or `ne` (not equal) operator against a single un-parenthesized expression with or without quotes or against multiple parenthesized expressions. Examples: `fieldname eq unquoted literal` `fieldname eq 'single quoted literal'` `fieldname eq \"double quoted literal\"` `(fieldname1 eq literal) (fieldname2 ne \"literal\")` The literal value is interpreted as a regular expression using Google RE2 library syntax. The literal value must match the entire field. For example, to filter for instances that do not end with name \"instance\", you would use `name ne .*instance`.",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "maxResults": {
+	//       "default": "500",
+	//       "description": "The maximum number of results per page that should be returned. If the number of available results is larger than `maxResults`, Compute Engine returns a `nextPageToken` that can be used to get the next page of results in subsequent list requests. Acceptable values are `0` to `500`, inclusive. (Default: `500`)",
+	//       "format": "uint32",
+	//       "location": "query",
+	//       "minimum": "0",
+	//       "type": "integer"
+	//     },
+	//     "orderBy": {
+	//       "description": "Sorts list results by a certain order. By default, results are returned in alphanumerical order based on the resource name. You can also sort results in descending order based on the creation timestamp using `orderBy=\"creationTimestamp desc\"`. This sorts results based on the `creationTimestamp` field in reverse chronological order (newest result first). Use this to sort resources like operations so that the newest operation is returned first. Currently, only sorting by `name` or `creationTimestamp desc` is supported.",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "pageToken": {
+	//       "description": "Specifies a page token to use. Set `pageToken` to the `nextPageToken` returned by a previous list request to get the next page of results.",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "returnPartialSuccess": {
+	//       "description": "Opt-in for partial success behavior which provides partial results in case of failure. The default value is false.",
+	//       "location": "query",
+	//       "type": "boolean"
+	//     }
+	//   },
+	//   "path": "projects/{project}/global/interconnectRemoteLocations",
+	//   "response": {
+	//     "$ref": "InterconnectRemoteLocationList"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute",
+	//     "https://www.googleapis.com/auth/compute.readonly"
+	//   ]
+	// }
+
+}
+
+// Pages invokes f for each page of results.
+// A non-nil error returned from f will halt the iteration.
+// The provided context supersedes any context provided to the Context method.
+func (c *InterconnectRemoteLocationsListCall) Pages(ctx context.Context, f func(*InterconnectRemoteLocationList) error) error {
+	c.ctx_ = ctx
+	defer c.PageToken(c.urlParams_.Get("pageToken")) // reset paging to original point
+	for {
+		x, err := c.Do()
+		if err != nil {
+			return err
+		}
+		if err := f(x); err != nil {
+			return err
+		}
+		if x.NextPageToken == "" {
+			return nil
+		}
+		c.PageToken(x.NextPageToken)
+	}
+}
+
 // method id "compute.interconnects.delete":
 
 type InterconnectsDeleteCall struct {
@@ -109805,8 +114581,7 @@ type MachineImagesGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified machine image. Gets a list of available
-// machine images by making a list() request.
+// Get: Returns the specified machine image.
 //
 // - machineImage: The name of the machine image.
 // - project: Project ID for this request.
@@ -109917,7 +114692,7 @@ func (c *MachineImagesGetCall) Do(opts ...googleapi.CallOption) (*MachineImage, 
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified machine image. Gets a list of available machine images by making a list() request.",
+	//   "description": "Returns the specified machine image.",
 	//   "flatPath": "projects/{project}/global/machineImages/{machineImage}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.machineImages.get",
@@ -111212,8 +115987,7 @@ type MachineTypesGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified machine type. Gets a list of available
-// machine types by making a list() request.
+// Get: Returns the specified machine type.
 //
 // - machineType: Name of the machine type to return.
 // - project: Project ID for this request.
@@ -111327,7 +116101,7 @@ func (c *MachineTypesGetCall) Do(opts ...googleapi.CallOption) (*MachineType, er
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified machine type. Gets a list of available machine types by making a list() request.",
+	//   "description": "Returns the specified machine type.",
 	//   "flatPath": "projects/{project}/zones/{zone}/machineTypes/{machineType}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.machineTypes.get",
@@ -115235,8 +120009,7 @@ type NetworkEndpointGroupsGetCall struct {
 	header_              http.Header
 }
 
-// Get: Returns the specified network endpoint group. Gets a list of
-// available network endpoint groups by making a list() request.
+// Get: Returns the specified network endpoint group.
 //
 //   - networkEndpointGroup: The name of the network endpoint group. It
 //     should comply with RFC1035.
@@ -115352,7 +120125,7 @@ func (c *NetworkEndpointGroupsGetCall) Do(opts ...googleapi.CallOption) (*Networ
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified network endpoint group. Gets a list of available network endpoint groups by making a list() request.",
+	//   "description": "Returns the specified network endpoint group.",
 	//   "flatPath": "projects/{project}/zones/{zone}/networkEndpointGroups/{networkEndpointGroup}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.networkEndpointGroups.get",
@@ -119595,8 +124368,7 @@ type NetworksGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified network. Gets a list of available networks
-// by making a list() request.
+// Get: Returns the specified network.
 //
 // - network: Name of the network to return.
 // - project: Project ID for this request.
@@ -119707,7 +124479,7 @@ func (c *NetworksGetCall) Do(opts ...googleapi.CallOption) (*Network, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified network. Gets a list of available networks by making a list() request.",
+	//   "description": "Returns the specified network.",
 	//   "flatPath": "projects/{project}/global/networks/{network}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.networks.get",
@@ -123921,6 +128693,196 @@ func (c *NodeGroupsSetNodeTemplateCall) Do(opts ...googleapi.CallOption) (*Opera
 
 }
 
+// method id "compute.nodeGroups.simulateMaintenanceEvent":
+
+type NodeGroupsSimulateMaintenanceEventCall struct {
+	s                                         *Service
+	project                                   string
+	zone                                      string
+	nodeGroup                                 string
+	nodegroupssimulatemaintenanceeventrequest *NodeGroupsSimulateMaintenanceEventRequest
+	urlParams_                                gensupport.URLParams
+	ctx_                                      context.Context
+	header_                                   http.Header
+}
+
+// SimulateMaintenanceEvent: Simulates maintenance event on specified
+// nodes from the node group.
+//
+//   - nodeGroup: Name of the NodeGroup resource whose nodes will go under
+//     maintenance simulation.
+//   - project: Project ID for this request.
+//   - zone: The name of the zone for this request.
+func (r *NodeGroupsService) SimulateMaintenanceEvent(project string, zone string, nodeGroup string, nodegroupssimulatemaintenanceeventrequest *NodeGroupsSimulateMaintenanceEventRequest) *NodeGroupsSimulateMaintenanceEventCall {
+	c := &NodeGroupsSimulateMaintenanceEventCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.zone = zone
+	c.nodeGroup = nodeGroup
+	c.nodegroupssimulatemaintenanceeventrequest = nodegroupssimulatemaintenanceeventrequest
+	return c
+}
+
+// RequestId sets the optional parameter "requestId": An optional
+// request ID to identify requests. Specify a unique request ID so that
+// if you must retry your request, the server will know to ignore the
+// request if it has already been completed. For example, consider a
+// situation where you make an initial request and the request times
+// out. If you make the request again with the same request ID, the
+// server can check if original operation with the same request ID was
+// received, and if so, will ignore the second request. This prevents
+// clients from accidentally creating duplicate commitments. The request
+// ID must be a valid UUID with the exception that zero UUID is not
+// supported ( 00000000-0000-0000-0000-000000000000).
+func (c *NodeGroupsSimulateMaintenanceEventCall) RequestId(requestId string) *NodeGroupsSimulateMaintenanceEventCall {
+	c.urlParams_.Set("requestId", requestId)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *NodeGroupsSimulateMaintenanceEventCall) Fields(s ...googleapi.Field) *NodeGroupsSimulateMaintenanceEventCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *NodeGroupsSimulateMaintenanceEventCall) Context(ctx context.Context) *NodeGroupsSimulateMaintenanceEventCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *NodeGroupsSimulateMaintenanceEventCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *NodeGroupsSimulateMaintenanceEventCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.nodegroupssimulatemaintenanceeventrequest)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/zones/{zone}/nodeGroups/{nodeGroup}/simulateMaintenanceEvent")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project":   c.project,
+		"zone":      c.zone,
+		"nodeGroup": c.nodeGroup,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.nodeGroups.simulateMaintenanceEvent" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *NodeGroupsSimulateMaintenanceEventCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Simulates maintenance event on specified nodes from the node group.",
+	//   "flatPath": "projects/{project}/zones/{zone}/nodeGroups/{nodeGroup}/simulateMaintenanceEvent",
+	//   "httpMethod": "POST",
+	//   "id": "compute.nodeGroups.simulateMaintenanceEvent",
+	//   "parameterOrder": [
+	//     "project",
+	//     "zone",
+	//     "nodeGroup"
+	//   ],
+	//   "parameters": {
+	//     "nodeGroup": {
+	//       "description": "Name of the NodeGroup resource whose nodes will go under maintenance simulation.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?|[1-9][0-9]{0,19}",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "requestId": {
+	//       "description": "An optional request ID to identify requests. Specify a unique request ID so that if you must retry your request, the server will know to ignore the request if it has already been completed. For example, consider a situation where you make an initial request and the request times out. If you make the request again with the same request ID, the server can check if original operation with the same request ID was received, and if so, will ignore the second request. This prevents clients from accidentally creating duplicate commitments. The request ID must be a valid UUID with the exception that zero UUID is not supported ( 00000000-0000-0000-0000-000000000000).",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "zone": {
+	//       "description": "The name of the zone for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/zones/{zone}/nodeGroups/{nodeGroup}/simulateMaintenanceEvent",
+	//   "request": {
+	//     "$ref": "NodeGroupsSimulateMaintenanceEventRequest"
+	//   },
+	//   "response": {
+	//     "$ref": "Operation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute"
+	//   ]
+	// }
+
+}
+
 // method id "compute.nodeGroups.testIamPermissions":
 
 type NodeGroupsTestIamPermissionsCall struct {
@@ -124578,8 +129540,7 @@ type NodeTemplatesGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified node template. Gets a list of available
-// node templates by making a list() request.
+// Get: Returns the specified node template.
 //
 // - nodeTemplate: Name of the node template to return.
 // - project: Project ID for this request.
@@ -124693,7 +129654,7 @@ func (c *NodeTemplatesGetCall) Do(opts ...googleapi.CallOption) (*NodeTemplate, 
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified node template. Gets a list of available node templates by making a list() request.",
+	//   "description": "Returns the specified node template.",
 	//   "flatPath": "projects/{project}/regions/{region}/nodeTemplates/{nodeTemplate}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.nodeTemplates.get",
@@ -126040,8 +131001,7 @@ type NodeTypesGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified node type. Gets a list of available node
-// types by making a list() request.
+// Get: Returns the specified node type.
 //
 // - nodeType: Name of the node type to return.
 // - project: Project ID for this request.
@@ -126155,7 +131115,7 @@ func (c *NodeTypesGetCall) Do(opts ...googleapi.CallOption) (*NodeType, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified node type. Gets a list of available node types by making a list() request.",
+	//   "description": "Returns the specified node type.",
 	//   "flatPath": "projects/{project}/zones/{zone}/nodeTypes/{nodeType}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.nodeTypes.get",
@@ -135798,8 +140758,7 @@ type RegionCommitmentsGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified commitment resource. Gets a list of
-// available commitments by making a list() request.
+// Get: Returns the specified commitment resource.
 //
 // - commitment: Name of the commitment to return.
 // - project: Project ID for this request.
@@ -135913,7 +140872,7 @@ func (c *RegionCommitmentsGetCall) Do(opts ...googleapi.CallOption) (*Commitment
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified commitment resource. Gets a list of available commitments by making a list() request.",
+	//   "description": "Returns the specified commitment resource.",
 	//   "flatPath": "projects/{project}/regions/{region}/commitments/{commitment}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.regionCommitments.get",
@@ -136656,8 +141615,7 @@ type RegionDiskTypesGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified regional disk type. Gets a list of
-// available disk types by making a list() request.
+// Get: Returns the specified regional disk type.
 //
 // - diskType: Name of the disk type to return.
 // - project: Project ID for this request.
@@ -136771,7 +141729,7 @@ func (c *RegionDiskTypesGetCall) Do(opts ...googleapi.CallOption) (*DiskType, er
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified regional disk type. Gets a list of available disk types by making a list() request.",
+	//   "description": "Returns the specified regional disk type.",
 	//   "flatPath": "projects/{project}/regions/{region}/diskTypes/{diskType}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.regionDiskTypes.get",
@@ -137286,6 +142244,182 @@ func (c *RegionDisksAddResourcePoliciesCall) Do(opts ...googleapi.CallOption) (*
 	//   "path": "projects/{project}/regions/{region}/disks/{disk}/addResourcePolicies",
 	//   "request": {
 	//     "$ref": "RegionDisksAddResourcePoliciesRequest"
+	//   },
+	//   "response": {
+	//     "$ref": "Operation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute"
+	//   ]
+	// }
+
+}
+
+// method id "compute.regionDisks.bulkInsert":
+
+type RegionDisksBulkInsertCall struct {
+	s                      *Service
+	project                string
+	region                 string
+	bulkinsertdiskresource *BulkInsertDiskResource
+	urlParams_             gensupport.URLParams
+	ctx_                   context.Context
+	header_                http.Header
+}
+
+// BulkInsert: Bulk create a set of disks.
+//
+// - project: Project ID for this request.
+// - region: The name of the region for this request.
+func (r *RegionDisksService) BulkInsert(project string, region string, bulkinsertdiskresource *BulkInsertDiskResource) *RegionDisksBulkInsertCall {
+	c := &RegionDisksBulkInsertCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.region = region
+	c.bulkinsertdiskresource = bulkinsertdiskresource
+	return c
+}
+
+// RequestId sets the optional parameter "requestId": An optional
+// request ID to identify requests. Specify a unique request ID so that
+// if you must retry your request, the server will know to ignore the
+// request if it has already been completed. For example, consider a
+// situation where you make an initial request and the request times
+// out. If you make the request again with the same request ID, the
+// server can check if original operation with the same request ID was
+// received, and if so, will ignore the second request. This prevents
+// clients from accidentally creating duplicate commitments. The request
+// ID must be a valid UUID with the exception that zero UUID is not
+// supported ( 00000000-0000-0000-0000-000000000000).
+func (c *RegionDisksBulkInsertCall) RequestId(requestId string) *RegionDisksBulkInsertCall {
+	c.urlParams_.Set("requestId", requestId)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *RegionDisksBulkInsertCall) Fields(s ...googleapi.Field) *RegionDisksBulkInsertCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *RegionDisksBulkInsertCall) Context(ctx context.Context) *RegionDisksBulkInsertCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *RegionDisksBulkInsertCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *RegionDisksBulkInsertCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.bulkinsertdiskresource)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/regions/{region}/disks/bulkInsert")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project": c.project,
+		"region":  c.region,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.regionDisks.bulkInsert" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *RegionDisksBulkInsertCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Bulk create a set of disks.",
+	//   "flatPath": "projects/{project}/regions/{region}/disks/bulkInsert",
+	//   "httpMethod": "POST",
+	//   "id": "compute.regionDisks.bulkInsert",
+	//   "parameterOrder": [
+	//     "project",
+	//     "region"
+	//   ],
+	//   "parameters": {
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "region": {
+	//       "description": "The name of the region for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "requestId": {
+	//       "description": "An optional request ID to identify requests. Specify a unique request ID so that if you must retry your request, the server will know to ignore the request if it has already been completed. For example, consider a situation where you make an initial request and the request times out. If you make the request again with the same request ID, the server can check if original operation with the same request ID was received, and if so, will ignore the second request. This prevents clients from accidentally creating duplicate commitments. The request ID must be a valid UUID with the exception that zero UUID is not supported ( 00000000-0000-0000-0000-000000000000).",
+	//       "location": "query",
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/regions/{region}/disks/bulkInsert",
+	//   "request": {
+	//     "$ref": "BulkInsertDiskResource"
 	//   },
 	//   "response": {
 	//     "$ref": "Operation"
@@ -139241,6 +144375,553 @@ func (c *RegionDisksSetLabelsCall) Do(opts ...googleapi.CallOption) (*Operation,
 
 }
 
+// method id "compute.regionDisks.startAsyncReplication":
+
+type RegionDisksStartAsyncReplicationCall struct {
+	s                                       *Service
+	project                                 string
+	region                                  string
+	disk                                    string
+	regiondisksstartasyncreplicationrequest *RegionDisksStartAsyncReplicationRequest
+	urlParams_                              gensupport.URLParams
+	ctx_                                    context.Context
+	header_                                 http.Header
+}
+
+// StartAsyncReplication: Starts asynchronous replication. Must be
+// invoked on the primary disk.
+//
+// - disk: The name of the persistent disk.
+// - project: Project ID for this request.
+// - region: The name of the region for this request.
+func (r *RegionDisksService) StartAsyncReplication(project string, region string, disk string, regiondisksstartasyncreplicationrequest *RegionDisksStartAsyncReplicationRequest) *RegionDisksStartAsyncReplicationCall {
+	c := &RegionDisksStartAsyncReplicationCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.region = region
+	c.disk = disk
+	c.regiondisksstartasyncreplicationrequest = regiondisksstartasyncreplicationrequest
+	return c
+}
+
+// RequestId sets the optional parameter "requestId": An optional
+// request ID to identify requests. Specify a unique request ID so that
+// if you must retry your request, the server will know to ignore the
+// request if it has already been completed. For example, consider a
+// situation where you make an initial request and the request times
+// out. If you make the request again with the same request ID, the
+// server can check if original operation with the same request ID was
+// received, and if so, will ignore the second request. This prevents
+// clients from accidentally creating duplicate commitments. The request
+// ID must be a valid UUID with the exception that zero UUID is not
+// supported ( 00000000-0000-0000-0000-000000000000).
+func (c *RegionDisksStartAsyncReplicationCall) RequestId(requestId string) *RegionDisksStartAsyncReplicationCall {
+	c.urlParams_.Set("requestId", requestId)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *RegionDisksStartAsyncReplicationCall) Fields(s ...googleapi.Field) *RegionDisksStartAsyncReplicationCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *RegionDisksStartAsyncReplicationCall) Context(ctx context.Context) *RegionDisksStartAsyncReplicationCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *RegionDisksStartAsyncReplicationCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *RegionDisksStartAsyncReplicationCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.regiondisksstartasyncreplicationrequest)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/regions/{region}/disks/{disk}/startAsyncReplication")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project": c.project,
+		"region":  c.region,
+		"disk":    c.disk,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.regionDisks.startAsyncReplication" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *RegionDisksStartAsyncReplicationCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Starts asynchronous replication. Must be invoked on the primary disk.",
+	//   "flatPath": "projects/{project}/regions/{region}/disks/{disk}/startAsyncReplication",
+	//   "httpMethod": "POST",
+	//   "id": "compute.regionDisks.startAsyncReplication",
+	//   "parameterOrder": [
+	//     "project",
+	//     "region",
+	//     "disk"
+	//   ],
+	//   "parameters": {
+	//     "disk": {
+	//       "description": "The name of the persistent disk.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?|[1-9][0-9]{0,19}",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "region": {
+	//       "description": "The name of the region for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "requestId": {
+	//       "description": "An optional request ID to identify requests. Specify a unique request ID so that if you must retry your request, the server will know to ignore the request if it has already been completed. For example, consider a situation where you make an initial request and the request times out. If you make the request again with the same request ID, the server can check if original operation with the same request ID was received, and if so, will ignore the second request. This prevents clients from accidentally creating duplicate commitments. The request ID must be a valid UUID with the exception that zero UUID is not supported ( 00000000-0000-0000-0000-000000000000).",
+	//       "location": "query",
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/regions/{region}/disks/{disk}/startAsyncReplication",
+	//   "request": {
+	//     "$ref": "RegionDisksStartAsyncReplicationRequest"
+	//   },
+	//   "response": {
+	//     "$ref": "Operation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute"
+	//   ]
+	// }
+
+}
+
+// method id "compute.regionDisks.stopAsyncReplication":
+
+type RegionDisksStopAsyncReplicationCall struct {
+	s          *Service
+	project    string
+	region     string
+	disk       string
+	urlParams_ gensupport.URLParams
+	ctx_       context.Context
+	header_    http.Header
+}
+
+// StopAsyncReplication: Stops asynchronous replication. Can be invoked
+// either on the primary or on the secondary disk.
+//
+// - disk: The name of the persistent disk.
+// - project: Project ID for this request.
+// - region: The name of the region for this request.
+func (r *RegionDisksService) StopAsyncReplication(project string, region string, disk string) *RegionDisksStopAsyncReplicationCall {
+	c := &RegionDisksStopAsyncReplicationCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.region = region
+	c.disk = disk
+	return c
+}
+
+// RequestId sets the optional parameter "requestId": An optional
+// request ID to identify requests. Specify a unique request ID so that
+// if you must retry your request, the server will know to ignore the
+// request if it has already been completed. For example, consider a
+// situation where you make an initial request and the request times
+// out. If you make the request again with the same request ID, the
+// server can check if original operation with the same request ID was
+// received, and if so, will ignore the second request. This prevents
+// clients from accidentally creating duplicate commitments. The request
+// ID must be a valid UUID with the exception that zero UUID is not
+// supported ( 00000000-0000-0000-0000-000000000000).
+func (c *RegionDisksStopAsyncReplicationCall) RequestId(requestId string) *RegionDisksStopAsyncReplicationCall {
+	c.urlParams_.Set("requestId", requestId)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *RegionDisksStopAsyncReplicationCall) Fields(s ...googleapi.Field) *RegionDisksStopAsyncReplicationCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *RegionDisksStopAsyncReplicationCall) Context(ctx context.Context) *RegionDisksStopAsyncReplicationCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *RegionDisksStopAsyncReplicationCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *RegionDisksStopAsyncReplicationCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/regions/{region}/disks/{disk}/stopAsyncReplication")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project": c.project,
+		"region":  c.region,
+		"disk":    c.disk,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.regionDisks.stopAsyncReplication" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *RegionDisksStopAsyncReplicationCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Stops asynchronous replication. Can be invoked either on the primary or on the secondary disk.",
+	//   "flatPath": "projects/{project}/regions/{region}/disks/{disk}/stopAsyncReplication",
+	//   "httpMethod": "POST",
+	//   "id": "compute.regionDisks.stopAsyncReplication",
+	//   "parameterOrder": [
+	//     "project",
+	//     "region",
+	//     "disk"
+	//   ],
+	//   "parameters": {
+	//     "disk": {
+	//       "description": "The name of the persistent disk.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?|[1-9][0-9]{0,19}",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "region": {
+	//       "description": "The name of the region for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "requestId": {
+	//       "description": "An optional request ID to identify requests. Specify a unique request ID so that if you must retry your request, the server will know to ignore the request if it has already been completed. For example, consider a situation where you make an initial request and the request times out. If you make the request again with the same request ID, the server can check if original operation with the same request ID was received, and if so, will ignore the second request. This prevents clients from accidentally creating duplicate commitments. The request ID must be a valid UUID with the exception that zero UUID is not supported ( 00000000-0000-0000-0000-000000000000).",
+	//       "location": "query",
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/regions/{region}/disks/{disk}/stopAsyncReplication",
+	//   "response": {
+	//     "$ref": "Operation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute"
+	//   ]
+	// }
+
+}
+
+// method id "compute.regionDisks.stopGroupAsyncReplication":
+
+type RegionDisksStopGroupAsyncReplicationCall struct {
+	s                                      *Service
+	project                                string
+	region                                 string
+	disksstopgroupasyncreplicationresource *DisksStopGroupAsyncReplicationResource
+	urlParams_                             gensupport.URLParams
+	ctx_                                   context.Context
+	header_                                http.Header
+}
+
+// StopGroupAsyncReplication: Stops asynchronous replication for a
+// consistency group of disks. Can be invoked either in the primary or
+// secondary scope.
+//
+//   - project: Project ID for this request.
+//   - region: The name of the region for this request. This must be the
+//     region of the primary or secondary disks in the consistency group.
+func (r *RegionDisksService) StopGroupAsyncReplication(project string, region string, disksstopgroupasyncreplicationresource *DisksStopGroupAsyncReplicationResource) *RegionDisksStopGroupAsyncReplicationCall {
+	c := &RegionDisksStopGroupAsyncReplicationCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.region = region
+	c.disksstopgroupasyncreplicationresource = disksstopgroupasyncreplicationresource
+	return c
+}
+
+// RequestId sets the optional parameter "requestId": An optional
+// request ID to identify requests. Specify a unique request ID so that
+// if you must retry your request, the server will know to ignore the
+// request if it has already been completed. For example, consider a
+// situation where you make an initial request and the request times
+// out. If you make the request again with the same request ID, the
+// server can check if original operation with the same request ID was
+// received, and if so, will ignore the second request. This prevents
+// clients from accidentally creating duplicate commitments. The request
+// ID must be a valid UUID with the exception that zero UUID is not
+// supported ( 00000000-0000-0000-0000-000000000000).
+func (c *RegionDisksStopGroupAsyncReplicationCall) RequestId(requestId string) *RegionDisksStopGroupAsyncReplicationCall {
+	c.urlParams_.Set("requestId", requestId)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *RegionDisksStopGroupAsyncReplicationCall) Fields(s ...googleapi.Field) *RegionDisksStopGroupAsyncReplicationCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *RegionDisksStopGroupAsyncReplicationCall) Context(ctx context.Context) *RegionDisksStopGroupAsyncReplicationCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *RegionDisksStopGroupAsyncReplicationCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *RegionDisksStopGroupAsyncReplicationCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.disksstopgroupasyncreplicationresource)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/regions/{region}/disks/stopGroupAsyncReplication")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project": c.project,
+		"region":  c.region,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.regionDisks.stopGroupAsyncReplication" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *RegionDisksStopGroupAsyncReplicationCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Stops asynchronous replication for a consistency group of disks. Can be invoked either in the primary or secondary scope.",
+	//   "flatPath": "projects/{project}/regions/{region}/disks/stopGroupAsyncReplication",
+	//   "httpMethod": "POST",
+	//   "id": "compute.regionDisks.stopGroupAsyncReplication",
+	//   "parameterOrder": [
+	//     "project",
+	//     "region"
+	//   ],
+	//   "parameters": {
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "region": {
+	//       "description": "The name of the region for this request. This must be the region of the primary or secondary disks in the consistency group.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "requestId": {
+	//       "description": "An optional request ID to identify requests. Specify a unique request ID so that if you must retry your request, the server will know to ignore the request if it has already been completed. For example, consider a situation where you make an initial request and the request times out. If you make the request again with the same request ID, the server can check if original operation with the same request ID was received, and if so, will ignore the second request. This prevents clients from accidentally creating duplicate commitments. The request ID must be a valid UUID with the exception that zero UUID is not supported ( 00000000-0000-0000-0000-000000000000).",
+	//       "location": "query",
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/regions/{region}/disks/stopGroupAsyncReplication",
+	//   "request": {
+	//     "$ref": "DisksStopGroupAsyncReplicationResource"
+	//   },
+	//   "response": {
+	//     "$ref": "Operation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute"
+	//   ]
+	// }
+
+}
+
 // method id "compute.regionDisks.testIamPermissions":
 
 type RegionDisksTestIamPermissionsCall struct {
@@ -139405,6 +145086,221 @@ func (c *RegionDisksTestIamPermissionsCall) Do(opts ...googleapi.CallOption) (*T
 	//     "https://www.googleapis.com/auth/cloud-platform",
 	//     "https://www.googleapis.com/auth/compute",
 	//     "https://www.googleapis.com/auth/compute.readonly"
+	//   ]
+	// }
+
+}
+
+// method id "compute.regionDisks.update":
+
+type RegionDisksUpdateCall struct {
+	s          *Service
+	project    string
+	region     string
+	disk       string
+	disk2      *Disk
+	urlParams_ gensupport.URLParams
+	ctx_       context.Context
+	header_    http.Header
+}
+
+// Update: Update the specified disk with the data included in the
+// request. Update is performed only on selected fields included as part
+// of update-mask. Only the following fields can be modified:
+// user_license.
+//
+// - disk: The disk name for this request.
+// - project: Project ID for this request.
+// - region: The name of the region for this request.
+func (r *RegionDisksService) Update(project string, region string, disk string, disk2 *Disk) *RegionDisksUpdateCall {
+	c := &RegionDisksUpdateCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.region = region
+	c.disk = disk
+	c.disk2 = disk2
+	return c
+}
+
+// Paths sets the optional parameter "paths":
+func (c *RegionDisksUpdateCall) Paths(paths ...string) *RegionDisksUpdateCall {
+	c.urlParams_.SetMulti("paths", append([]string{}, paths...))
+	return c
+}
+
+// RequestId sets the optional parameter "requestId": An optional
+// request ID to identify requests. Specify a unique request ID so that
+// if you must retry your request, the server will know to ignore the
+// request if it has already been completed. For example, consider a
+// situation where you make an initial request and the request times
+// out. If you make the request again with the same request ID, the
+// server can check if original operation with the same request ID was
+// received, and if so, will ignore the second request. This prevents
+// clients from accidentally creating duplicate commitments. The request
+// ID must be a valid UUID with the exception that zero UUID is not
+// supported ( 00000000-0000-0000-0000-000000000000).
+func (c *RegionDisksUpdateCall) RequestId(requestId string) *RegionDisksUpdateCall {
+	c.urlParams_.Set("requestId", requestId)
+	return c
+}
+
+// UpdateMask sets the optional parameter "updateMask": update_mask
+// indicates fields to be updated as part of this request.
+func (c *RegionDisksUpdateCall) UpdateMask(updateMask string) *RegionDisksUpdateCall {
+	c.urlParams_.Set("updateMask", updateMask)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *RegionDisksUpdateCall) Fields(s ...googleapi.Field) *RegionDisksUpdateCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *RegionDisksUpdateCall) Context(ctx context.Context) *RegionDisksUpdateCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *RegionDisksUpdateCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *RegionDisksUpdateCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.disk2)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/regions/{region}/disks/{disk}")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("PATCH", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project": c.project,
+		"region":  c.region,
+		"disk":    c.disk,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.regionDisks.update" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *RegionDisksUpdateCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Update the specified disk with the data included in the request. Update is performed only on selected fields included as part of update-mask. Only the following fields can be modified: user_license.",
+	//   "flatPath": "projects/{project}/regions/{region}/disks/{disk}",
+	//   "httpMethod": "PATCH",
+	//   "id": "compute.regionDisks.update",
+	//   "parameterOrder": [
+	//     "project",
+	//     "region",
+	//     "disk"
+	//   ],
+	//   "parameters": {
+	//     "disk": {
+	//       "description": "The disk name for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?|[1-9][0-9]{0,19}",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "paths": {
+	//       "location": "query",
+	//       "repeated": true,
+	//       "type": "string"
+	//     },
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "region": {
+	//       "description": "The name of the region for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "requestId": {
+	//       "description": "An optional request ID to identify requests. Specify a unique request ID so that if you must retry your request, the server will know to ignore the request if it has already been completed. For example, consider a situation where you make an initial request and the request times out. If you make the request again with the same request ID, the server can check if original operation with the same request ID was received, and if so, will ignore the second request. This prevents clients from accidentally creating duplicate commitments. The request ID must be a valid UUID with the exception that zero UUID is not supported ( 00000000-0000-0000-0000-000000000000).",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "updateMask": {
+	//       "description": "update_mask indicates fields to be updated as part of this request.",
+	//       "format": "google-fieldmask",
+	//       "location": "query",
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/regions/{region}/disks/{disk}",
+	//   "request": {
+	//     "$ref": "Disk"
+	//   },
+	//   "response": {
+	//     "$ref": "Operation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute"
 	//   ]
 	// }
 
@@ -140610,8 +146506,7 @@ type RegionHealthChecksGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified HealthCheck resource. Gets a list of
-// available health checks by making a list() request.
+// Get: Returns the specified HealthCheck resource.
 //
 // - healthCheck: Name of the HealthCheck resource to return.
 // - project: Project ID for this request.
@@ -140725,7 +146620,7 @@ func (c *RegionHealthChecksGetCall) Do(opts ...googleapi.CallOption) (*HealthChe
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified HealthCheck resource. Gets a list of available health checks by making a list() request.",
+	//   "description": "Returns the specified HealthCheck resource.",
 	//   "flatPath": "projects/{project}/regions/{region}/healthChecks/{healthCheck}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.regionHealthChecks.get",
@@ -146561,6 +152456,827 @@ func (c *RegionInstanceGroupsSetNamedPortsCall) Do(opts ...googleapi.CallOption)
 
 }
 
+// method id "compute.regionInstanceTemplates.delete":
+
+type RegionInstanceTemplatesDeleteCall struct {
+	s                *Service
+	project          string
+	region           string
+	instanceTemplate string
+	urlParams_       gensupport.URLParams
+	ctx_             context.Context
+	header_          http.Header
+}
+
+// Delete: Deletes the specified instance template. Deleting an instance
+// template is permanent and cannot be undone.
+//
+// - instanceTemplate: The name of the instance template to delete.
+// - project: Project ID for this request.
+// - region: The name of the region for this request.
+func (r *RegionInstanceTemplatesService) Delete(project string, region string, instanceTemplate string) *RegionInstanceTemplatesDeleteCall {
+	c := &RegionInstanceTemplatesDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.region = region
+	c.instanceTemplate = instanceTemplate
+	return c
+}
+
+// RequestId sets the optional parameter "requestId": An optional
+// request ID to identify requests. Specify a unique request ID so that
+// if you must retry your request, the server will know to ignore the
+// request if it has already been completed. For example, consider a
+// situation where you make an initial request and the request times
+// out. If you make the request again with the same request ID, the
+// server can check if original operation with the same request ID was
+// received, and if so, will ignore the second request. This prevents
+// clients from accidentally creating duplicate commitments. The request
+// ID must be a valid UUID with the exception that zero UUID is not
+// supported ( 00000000-0000-0000-0000-000000000000).
+func (c *RegionInstanceTemplatesDeleteCall) RequestId(requestId string) *RegionInstanceTemplatesDeleteCall {
+	c.urlParams_.Set("requestId", requestId)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *RegionInstanceTemplatesDeleteCall) Fields(s ...googleapi.Field) *RegionInstanceTemplatesDeleteCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *RegionInstanceTemplatesDeleteCall) Context(ctx context.Context) *RegionInstanceTemplatesDeleteCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *RegionInstanceTemplatesDeleteCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *RegionInstanceTemplatesDeleteCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/regions/{region}/instanceTemplates/{instanceTemplate}")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("DELETE", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project":          c.project,
+		"region":           c.region,
+		"instanceTemplate": c.instanceTemplate,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.regionInstanceTemplates.delete" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *RegionInstanceTemplatesDeleteCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Deletes the specified instance template. Deleting an instance template is permanent and cannot be undone.",
+	//   "flatPath": "projects/{project}/regions/{region}/instanceTemplates/{instanceTemplate}",
+	//   "httpMethod": "DELETE",
+	//   "id": "compute.regionInstanceTemplates.delete",
+	//   "parameterOrder": [
+	//     "project",
+	//     "region",
+	//     "instanceTemplate"
+	//   ],
+	//   "parameters": {
+	//     "instanceTemplate": {
+	//       "description": "The name of the instance template to delete.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?|[1-9][0-9]{0,19}",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "region": {
+	//       "description": "The name of the region for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "requestId": {
+	//       "description": "An optional request ID to identify requests. Specify a unique request ID so that if you must retry your request, the server will know to ignore the request if it has already been completed. For example, consider a situation where you make an initial request and the request times out. If you make the request again with the same request ID, the server can check if original operation with the same request ID was received, and if so, will ignore the second request. This prevents clients from accidentally creating duplicate commitments. The request ID must be a valid UUID with the exception that zero UUID is not supported ( 00000000-0000-0000-0000-000000000000).",
+	//       "location": "query",
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/regions/{region}/instanceTemplates/{instanceTemplate}",
+	//   "response": {
+	//     "$ref": "Operation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute"
+	//   ]
+	// }
+
+}
+
+// method id "compute.regionInstanceTemplates.get":
+
+type RegionInstanceTemplatesGetCall struct {
+	s                *Service
+	project          string
+	region           string
+	instanceTemplate string
+	urlParams_       gensupport.URLParams
+	ifNoneMatch_     string
+	ctx_             context.Context
+	header_          http.Header
+}
+
+// Get: Returns the specified instance template.
+//
+// - instanceTemplate: The name of the instance template.
+// - project: Project ID for this request.
+// - region: The name of the region for this request.
+func (r *RegionInstanceTemplatesService) Get(project string, region string, instanceTemplate string) *RegionInstanceTemplatesGetCall {
+	c := &RegionInstanceTemplatesGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.region = region
+	c.instanceTemplate = instanceTemplate
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *RegionInstanceTemplatesGetCall) Fields(s ...googleapi.Field) *RegionInstanceTemplatesGetCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// IfNoneMatch sets the optional parameter which makes the operation
+// fail if the object's ETag matches the given value. This is useful for
+// getting updates only after the object has changed since the last
+// request. Use googleapi.IsNotModified to check whether the response
+// error from Do is the result of In-None-Match.
+func (c *RegionInstanceTemplatesGetCall) IfNoneMatch(entityTag string) *RegionInstanceTemplatesGetCall {
+	c.ifNoneMatch_ = entityTag
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *RegionInstanceTemplatesGetCall) Context(ctx context.Context) *RegionInstanceTemplatesGetCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *RegionInstanceTemplatesGetCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *RegionInstanceTemplatesGetCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	if c.ifNoneMatch_ != "" {
+		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
+	}
+	var body io.Reader = nil
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/regions/{region}/instanceTemplates/{instanceTemplate}")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("GET", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project":          c.project,
+		"region":           c.region,
+		"instanceTemplate": c.instanceTemplate,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.regionInstanceTemplates.get" call.
+// Exactly one of *InstanceTemplate or error will be non-nil. Any
+// non-2xx status code is an error. Response headers are in either
+// *InstanceTemplate.ServerResponse.Header or (if a response was
+// returned at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was
+// because http.StatusNotModified was returned.
+func (c *RegionInstanceTemplatesGetCall) Do(opts ...googleapi.CallOption) (*InstanceTemplate, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &InstanceTemplate{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Returns the specified instance template.",
+	//   "flatPath": "projects/{project}/regions/{region}/instanceTemplates/{instanceTemplate}",
+	//   "httpMethod": "GET",
+	//   "id": "compute.regionInstanceTemplates.get",
+	//   "parameterOrder": [
+	//     "project",
+	//     "region",
+	//     "instanceTemplate"
+	//   ],
+	//   "parameters": {
+	//     "instanceTemplate": {
+	//       "description": "The name of the instance template.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?|[1-9][0-9]{0,19}",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "region": {
+	//       "description": "The name of the region for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/regions/{region}/instanceTemplates/{instanceTemplate}",
+	//   "response": {
+	//     "$ref": "InstanceTemplate"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute",
+	//     "https://www.googleapis.com/auth/compute.readonly"
+	//   ]
+	// }
+
+}
+
+// method id "compute.regionInstanceTemplates.insert":
+
+type RegionInstanceTemplatesInsertCall struct {
+	s                *Service
+	project          string
+	region           string
+	instancetemplate *InstanceTemplate
+	urlParams_       gensupport.URLParams
+	ctx_             context.Context
+	header_          http.Header
+}
+
+// Insert: Creates an instance template in the specified project and
+// region using the global instance template whose URL is included in
+// the request.
+//
+// - project: Project ID for this request.
+// - region: The name of the region for this request.
+func (r *RegionInstanceTemplatesService) Insert(project string, region string, instancetemplate *InstanceTemplate) *RegionInstanceTemplatesInsertCall {
+	c := &RegionInstanceTemplatesInsertCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.region = region
+	c.instancetemplate = instancetemplate
+	return c
+}
+
+// RequestId sets the optional parameter "requestId": An optional
+// request ID to identify requests. Specify a unique request ID so that
+// if you must retry your request, the server will know to ignore the
+// request if it has already been completed. For example, consider a
+// situation where you make an initial request and the request times
+// out. If you make the request again with the same request ID, the
+// server can check if original operation with the same request ID was
+// received, and if so, will ignore the second request. This prevents
+// clients from accidentally creating duplicate commitments. The request
+// ID must be a valid UUID with the exception that zero UUID is not
+// supported ( 00000000-0000-0000-0000-000000000000).
+func (c *RegionInstanceTemplatesInsertCall) RequestId(requestId string) *RegionInstanceTemplatesInsertCall {
+	c.urlParams_.Set("requestId", requestId)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *RegionInstanceTemplatesInsertCall) Fields(s ...googleapi.Field) *RegionInstanceTemplatesInsertCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *RegionInstanceTemplatesInsertCall) Context(ctx context.Context) *RegionInstanceTemplatesInsertCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *RegionInstanceTemplatesInsertCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *RegionInstanceTemplatesInsertCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.instancetemplate)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/regions/{region}/instanceTemplates")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project": c.project,
+		"region":  c.region,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.regionInstanceTemplates.insert" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *RegionInstanceTemplatesInsertCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Creates an instance template in the specified project and region using the global instance template whose URL is included in the request.",
+	//   "flatPath": "projects/{project}/regions/{region}/instanceTemplates",
+	//   "httpMethod": "POST",
+	//   "id": "compute.regionInstanceTemplates.insert",
+	//   "parameterOrder": [
+	//     "project",
+	//     "region"
+	//   ],
+	//   "parameters": {
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "region": {
+	//       "description": "The name of the region for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "requestId": {
+	//       "description": "An optional request ID to identify requests. Specify a unique request ID so that if you must retry your request, the server will know to ignore the request if it has already been completed. For example, consider a situation where you make an initial request and the request times out. If you make the request again with the same request ID, the server can check if original operation with the same request ID was received, and if so, will ignore the second request. This prevents clients from accidentally creating duplicate commitments. The request ID must be a valid UUID with the exception that zero UUID is not supported ( 00000000-0000-0000-0000-000000000000).",
+	//       "location": "query",
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "projects/{project}/regions/{region}/instanceTemplates",
+	//   "request": {
+	//     "$ref": "InstanceTemplate"
+	//   },
+	//   "response": {
+	//     "$ref": "Operation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute"
+	//   ]
+	// }
+
+}
+
+// method id "compute.regionInstanceTemplates.list":
+
+type RegionInstanceTemplatesListCall struct {
+	s            *Service
+	project      string
+	region       string
+	urlParams_   gensupport.URLParams
+	ifNoneMatch_ string
+	ctx_         context.Context
+	header_      http.Header
+}
+
+// List: Retrieves a list of instance templates that are contained
+// within the specified project and region.
+//
+// - project: Project ID for this request.
+// - region: The name of the regions for this request.
+func (r *RegionInstanceTemplatesService) List(project string, region string) *RegionInstanceTemplatesListCall {
+	c := &RegionInstanceTemplatesListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.project = project
+	c.region = region
+	return c
+}
+
+// Filter sets the optional parameter "filter": A filter expression that
+// filters resources listed in the response. Most Compute resources
+// support two types of filter expressions: expressions that support
+// regular expressions and expressions that follow API improvement
+// proposal AIP-160. If you want to use AIP-160, your expression must
+// specify the field name, an operator, and the value that you want to
+// use for filtering. The value must be a string, a number, or a
+// boolean. The operator must be either `=`, `!=`, `>`, `<`, `<=`, `>=`
+// or `:`. For example, if you are filtering Compute Engine instances,
+// you can exclude instances named `example-instance` by specifying
+// `name != example-instance`. The `:` operator can be used with string
+// fields to match substrings. For non-string fields it is equivalent to
+// the `=` operator. The `:*` comparison can be used to test whether a
+// key has been defined. For example, to find all objects with `owner`
+// label use: ``` labels.owner:* ``` You can also filter nested fields.
+// For example, you could specify `scheduling.automaticRestart = false`
+// to include instances only if they are not scheduled for automatic
+// restarts. You can use filtering on nested fields to filter based on
+// resource labels. To filter on multiple expressions, provide each
+// separate expression within parentheses. For example: ```
+// (scheduling.automaticRestart = true) (cpuPlatform = "Intel Skylake")
+// ``` By default, each expression is an `AND` expression. However, you
+// can include `AND` and `OR` expressions explicitly. For example: ```
+// (cpuPlatform = "Intel Skylake") OR (cpuPlatform = "Intel Broadwell")
+// AND (scheduling.automaticRestart = true) ``` If you want to use a
+// regular expression, use the `eq` (equal) or `ne` (not equal) operator
+// against a single un-parenthesized expression with or without quotes
+// or against multiple parenthesized expressions. Examples: `fieldname
+// eq unquoted literal` `fieldname eq 'single quoted literal'`
+// `fieldname eq "double quoted literal" `(fieldname1 eq literal)
+// (fieldname2 ne "literal")` The literal value is interpreted as a
+// regular expression using Google RE2 library syntax. The literal value
+// must match the entire field. For example, to filter for instances
+// that do not end with name "instance", you would use `name ne
+// .*instance`.
+func (c *RegionInstanceTemplatesListCall) Filter(filter string) *RegionInstanceTemplatesListCall {
+	c.urlParams_.Set("filter", filter)
+	return c
+}
+
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that should be returned. If the number of
+// available results is larger than `maxResults`, Compute Engine returns
+// a `nextPageToken` that can be used to get the next page of results in
+// subsequent list requests. Acceptable values are `0` to `500`,
+// inclusive. (Default: `500`)
+func (c *RegionInstanceTemplatesListCall) MaxResults(maxResults int64) *RegionInstanceTemplatesListCall {
+	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
+	return c
+}
+
+// OrderBy sets the optional parameter "orderBy": Sorts list results by
+// a certain order. By default, results are returned in alphanumerical
+// order based on the resource name. You can also sort results in
+// descending order based on the creation timestamp using
+// `orderBy="creationTimestamp desc". This sorts results based on the
+// `creationTimestamp` field in reverse chronological order (newest
+// result first). Use this to sort resources like operations so that the
+// newest operation is returned first. Currently, only sorting by `name`
+// or `creationTimestamp desc` is supported.
+func (c *RegionInstanceTemplatesListCall) OrderBy(orderBy string) *RegionInstanceTemplatesListCall {
+	c.urlParams_.Set("orderBy", orderBy)
+	return c
+}
+
+// PageToken sets the optional parameter "pageToken": Specifies a page
+// token to use. Set `pageToken` to the `nextPageToken` returned by a
+// previous list request to get the next page of results.
+func (c *RegionInstanceTemplatesListCall) PageToken(pageToken string) *RegionInstanceTemplatesListCall {
+	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// ReturnPartialSuccess sets the optional parameter
+// "returnPartialSuccess": Opt-in for partial success behavior which
+// provides partial results in case of failure. The default value is
+// false.
+func (c *RegionInstanceTemplatesListCall) ReturnPartialSuccess(returnPartialSuccess bool) *RegionInstanceTemplatesListCall {
+	c.urlParams_.Set("returnPartialSuccess", fmt.Sprint(returnPartialSuccess))
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *RegionInstanceTemplatesListCall) Fields(s ...googleapi.Field) *RegionInstanceTemplatesListCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// IfNoneMatch sets the optional parameter which makes the operation
+// fail if the object's ETag matches the given value. This is useful for
+// getting updates only after the object has changed since the last
+// request. Use googleapi.IsNotModified to check whether the response
+// error from Do is the result of In-None-Match.
+func (c *RegionInstanceTemplatesListCall) IfNoneMatch(entityTag string) *RegionInstanceTemplatesListCall {
+	c.ifNoneMatch_ = entityTag
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *RegionInstanceTemplatesListCall) Context(ctx context.Context) *RegionInstanceTemplatesListCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *RegionInstanceTemplatesListCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *RegionInstanceTemplatesListCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	if c.ifNoneMatch_ != "" {
+		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
+	}
+	var body io.Reader = nil
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "projects/{project}/regions/{region}/instanceTemplates")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("GET", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"project": c.project,
+		"region":  c.region,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "compute.regionInstanceTemplates.list" call.
+// Exactly one of *InstanceTemplateList or error will be non-nil. Any
+// non-2xx status code is an error. Response headers are in either
+// *InstanceTemplateList.ServerResponse.Header or (if a response was
+// returned at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was
+// because http.StatusNotModified was returned.
+func (c *RegionInstanceTemplatesListCall) Do(opts ...googleapi.CallOption) (*InstanceTemplateList, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &InstanceTemplateList{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Retrieves a list of instance templates that are contained within the specified project and region.",
+	//   "flatPath": "projects/{project}/regions/{region}/instanceTemplates",
+	//   "httpMethod": "GET",
+	//   "id": "compute.regionInstanceTemplates.list",
+	//   "parameterOrder": [
+	//     "project",
+	//     "region"
+	//   ],
+	//   "parameters": {
+	//     "filter": {
+	//       "description": "A filter expression that filters resources listed in the response. Most Compute resources support two types of filter expressions: expressions that support regular expressions and expressions that follow API improvement proposal AIP-160. If you want to use AIP-160, your expression must specify the field name, an operator, and the value that you want to use for filtering. The value must be a string, a number, or a boolean. The operator must be either `=`, `!=`, `\u003e`, `\u003c`, `\u003c=`, `\u003e=` or `:`. For example, if you are filtering Compute Engine instances, you can exclude instances named `example-instance` by specifying `name != example-instance`. The `:` operator can be used with string fields to match substrings. For non-string fields it is equivalent to the `=` operator. The `:*` comparison can be used to test whether a key has been defined. For example, to find all objects with `owner` label use: ``` labels.owner:* ``` You can also filter nested fields. For example, you could specify `scheduling.automaticRestart = false` to include instances only if they are not scheduled for automatic restarts. You can use filtering on nested fields to filter based on resource labels. To filter on multiple expressions, provide each separate expression within parentheses. For example: ``` (scheduling.automaticRestart = true) (cpuPlatform = \"Intel Skylake\") ``` By default, each expression is an `AND` expression. However, you can include `AND` and `OR` expressions explicitly. For example: ``` (cpuPlatform = \"Intel Skylake\") OR (cpuPlatform = \"Intel Broadwell\") AND (scheduling.automaticRestart = true) ``` If you want to use a regular expression, use the `eq` (equal) or `ne` (not equal) operator against a single un-parenthesized expression with or without quotes or against multiple parenthesized expressions. Examples: `fieldname eq unquoted literal` `fieldname eq 'single quoted literal'` `fieldname eq \"double quoted literal\"` `(fieldname1 eq literal) (fieldname2 ne \"literal\")` The literal value is interpreted as a regular expression using Google RE2 library syntax. The literal value must match the entire field. For example, to filter for instances that do not end with name \"instance\", you would use `name ne .*instance`.",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "maxResults": {
+	//       "default": "500",
+	//       "description": "The maximum number of results per page that should be returned. If the number of available results is larger than `maxResults`, Compute Engine returns a `nextPageToken` that can be used to get the next page of results in subsequent list requests. Acceptable values are `0` to `500`, inclusive. (Default: `500`)",
+	//       "format": "uint32",
+	//       "location": "query",
+	//       "minimum": "0",
+	//       "type": "integer"
+	//     },
+	//     "orderBy": {
+	//       "description": "Sorts list results by a certain order. By default, results are returned in alphanumerical order based on the resource name. You can also sort results in descending order based on the creation timestamp using `orderBy=\"creationTimestamp desc\"`. This sorts results based on the `creationTimestamp` field in reverse chronological order (newest result first). Use this to sort resources like operations so that the newest operation is returned first. Currently, only sorting by `name` or `creationTimestamp desc` is supported.",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "pageToken": {
+	//       "description": "Specifies a page token to use. Set `pageToken` to the `nextPageToken` returned by a previous list request to get the next page of results.",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "project": {
+	//       "description": "Project ID for this request.",
+	//       "location": "path",
+	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "region": {
+	//       "description": "The name of the regions for this request.",
+	//       "location": "path",
+	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "returnPartialSuccess": {
+	//       "description": "Opt-in for partial success behavior which provides partial results in case of failure. The default value is false.",
+	//       "location": "query",
+	//       "type": "boolean"
+	//     }
+	//   },
+	//   "path": "projects/{project}/regions/{region}/instanceTemplates",
+	//   "response": {
+	//     "$ref": "InstanceTemplateList"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/compute",
+	//     "https://www.googleapis.com/auth/compute.readonly"
+	//   ]
+	// }
+
+}
+
+// Pages invokes f for each page of results.
+// A non-nil error returned from f will halt the iteration.
+// The provided context supersedes any context provided to the Context method.
+func (c *RegionInstanceTemplatesListCall) Pages(ctx context.Context, f func(*InstanceTemplateList) error) error {
+	c.ctx_ = ctx
+	defer c.PageToken(c.urlParams_.Get("pageToken")) // reset paging to original point
+	for {
+		x, err := c.Do()
+		if err != nil {
+			return err
+		}
+		if err := f(x); err != nil {
+			return err
+		}
+		if x.NextPageToken == "" {
+			return nil
+		}
+		c.PageToken(x.NextPageToken)
+	}
+}
+
 // method id "compute.regionInstances.bulkInsert":
 
 type RegionInstancesBulkInsertCall struct {
@@ -146931,8 +153647,7 @@ type RegionNetworkEndpointGroupsGetCall struct {
 	header_              http.Header
 }
 
-// Get: Returns the specified network endpoint group. Gets a list of
-// available network endpoint groups by making a list() request.
+// Get: Returns the specified network endpoint group.
 //
 //   - networkEndpointGroup: The name of the network endpoint group. It
 //     should comply with RFC1035.
@@ -147048,7 +153763,7 @@ func (c *RegionNetworkEndpointGroupsGetCall) Do(opts ...googleapi.CallOption) (*
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified network endpoint group. Gets a list of available network endpoint groups by making a list() request.",
+	//   "description": "Returns the specified network endpoint group.",
 	//   "flatPath": "projects/{project}/regions/{region}/networkEndpointGroups/{networkEndpointGroup}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.regionNetworkEndpointGroups.get",
@@ -155734,8 +162449,7 @@ type RegionTargetHttpProxiesGetCall struct {
 }
 
 // Get: Returns the specified TargetHttpProxy resource in the specified
-// region. Gets a list of available target HTTP proxies by making a
-// list() request.
+// region.
 //
 // - project: Project ID for this request.
 // - region: Name of the region scoping this request.
@@ -155849,7 +162563,7 @@ func (c *RegionTargetHttpProxiesGetCall) Do(opts ...googleapi.CallOption) (*Targ
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified TargetHttpProxy resource in the specified region. Gets a list of available target HTTP proxies by making a list() request.",
+	//   "description": "Returns the specified TargetHttpProxy resource in the specified region.",
 	//   "flatPath": "projects/{project}/regions/{region}/targetHttpProxies/{targetHttpProxy}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.regionTargetHttpProxies.get",
@@ -156743,8 +163457,7 @@ type RegionTargetHttpsProxiesGetCall struct {
 }
 
 // Get: Returns the specified TargetHttpsProxy resource in the specified
-// region. Gets a list of available target HTTP proxies by making a
-// list() request.
+// region.
 //
 // - project: Project ID for this request.
 // - region: Name of the region scoping this request.
@@ -156858,7 +163571,7 @@ func (c *RegionTargetHttpsProxiesGetCall) Do(opts ...googleapi.CallOption) (*Tar
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified TargetHttpsProxy resource in the specified region. Gets a list of available target HTTP proxies by making a list() request.",
+	//   "description": "Returns the specified TargetHttpsProxy resource in the specified region.",
 	//   "flatPath": "projects/{project}/regions/{region}/targetHttpsProxies/{targetHttpsProxy}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.regionTargetHttpsProxies.get",
@@ -158941,8 +165654,7 @@ type RegionUrlMapsGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified UrlMap resource. Gets a list of available
-// URL maps by making a list() request.
+// Get: Returns the specified UrlMap resource.
 //
 // - project: Project ID for this request.
 // - region: Name of the region scoping this request.
@@ -159056,7 +165768,7 @@ func (c *RegionUrlMapsGetCall) Do(opts ...googleapi.CallOption) (*UrlMap, error)
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified UrlMap resource. Gets a list of available URL maps by making a list() request.",
+	//   "description": "Returns the specified UrlMap resource.",
 	//   "flatPath": "projects/{project}/regions/{region}/urlMaps/{urlMap}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.regionUrlMaps.get",
@@ -160103,10 +166815,9 @@ type RegionsGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified Region resource. Gets a list of available
-// regions by making a list() request. To decrease latency for this
-// method, you can optionally omit any unneeded information from the
-// response by using a field mask. This practice is especially
+// Get: Returns the specified Region resource. To decrease latency for
+// this method, you can optionally omit any unneeded information from
+// the response by using a field mask. This practice is especially
 // recommended for unused quota information (the `quotas` field). To
 // exclude one or more fields, set your request's `fields` query
 // parameter to only include the fields you need. For example, to only
@@ -160222,7 +166933,7 @@ func (c *RegionsGetCall) Do(opts ...googleapi.CallOption) (*Region, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified Region resource. Gets a list of available regions by making a list() request. To decrease latency for this method, you can optionally omit any unneeded information from the response by using a field mask. This practice is especially recommended for unused quota information (the `quotas` field). To exclude one or more fields, set your request's `fields` query parameter to only include the fields you need. For example, to only include the `id` and `selfLink` fields, add the query parameter `?fields=id,selfLink` to your request.",
+	//   "description": "Returns the specified Region resource. To decrease latency for this method, you can optionally omit any unneeded information from the response by using a field mask. This practice is especially recommended for unused quota information (the `quotas` field). To exclude one or more fields, set your request's `fields` query parameter to only include the fields you need. For example, to only include the `id` and `selfLink` fields, add the query parameter `?fields=id,selfLink` to your request.",
 	//   "flatPath": "projects/{project}/regions/{region}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.regions.get",
@@ -164713,8 +171424,7 @@ type RoutersGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified Router resource. Gets a list of available
-// routers by making a list() request.
+// Get: Returns the specified Router resource.
 //
 // - project: Project ID for this request.
 // - region: Name of the region for this request.
@@ -164828,7 +171538,7 @@ func (c *RoutersGetCall) Do(opts ...googleapi.CallOption) (*Router, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified Router resource. Gets a list of available routers by making a list() request.",
+	//   "description": "Returns the specified Router resource.",
 	//   "flatPath": "projects/{project}/regions/{region}/routers/{router}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.routers.get",
@@ -164949,6 +171659,15 @@ func (c *RoutersGetNatMappingInfoCall) Filter(filter string) *RoutersGetNatMappi
 // inclusive. (Default: `500`)
 func (c *RoutersGetNatMappingInfoCall) MaxResults(maxResults int64) *RoutersGetNatMappingInfoCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
+	return c
+}
+
+// NatName sets the optional parameter "natName": Name of the nat
+// service to filter the Nat Mapping information. If it is omitted, all
+// nats for this router will be returned. Name should conform to
+// RFC1035.
+func (c *RoutersGetNatMappingInfoCall) NatName(natName string) *RoutersGetNatMappingInfoCall {
+	c.urlParams_.Set("natName", natName)
 	return c
 }
 
@@ -165106,6 +171825,11 @@ func (c *RoutersGetNatMappingInfoCall) Do(opts ...googleapi.CallOption) (*VmEndp
 	//       "location": "query",
 	//       "minimum": "0",
 	//       "type": "integer"
+	//     },
+	//     "natName": {
+	//       "description": "Name of the nat service to filter the Nat Mapping information. If it is omitted, all nats for this router will be returned. Name should conform to RFC1035.",
+	//       "location": "query",
+	//       "type": "string"
 	//     },
 	//     "orderBy": {
 	//       "description": "Sorts list results by a certain order. By default, results are returned in alphanumerical order based on the resource name. You can also sort results in descending order based on the creation timestamp using `orderBy=\"creationTimestamp desc\"`. This sorts results based on the `creationTimestamp` field in reverse chronological order (newest result first). Use this to sort resources like operations so that the newest operation is returned first. Currently, only sorting by `name` or `creationTimestamp desc` is supported.",
@@ -166550,8 +173274,7 @@ type RoutesGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified Route resource. Gets a list of available
-// routes by making a list() request.
+// Get: Returns the specified Route resource.
 //
 // - project: Project ID for this request.
 // - route: Name of the Route resource to return.
@@ -166662,7 +173385,7 @@ func (c *RoutesGetCall) Do(opts ...googleapi.CallOption) (*Route, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified Route resource. Gets a list of available routes by making a list() request.",
+	//   "description": "Returns the specified Route resource.",
 	//   "flatPath": "projects/{project}/global/routes/{route}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.routes.get",
@@ -171519,8 +178242,7 @@ type SnapshotsGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified Snapshot resource. Gets a list of
-// available snapshots by making a list() request.
+// Get: Returns the specified Snapshot resource.
 //
 // - project: Project ID for this request.
 // - snapshot: Name of the Snapshot resource to return.
@@ -171631,7 +178353,7 @@ func (c *SnapshotsGetCall) Do(opts ...googleapi.CallOption) (*Snapshot, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified Snapshot resource. Gets a list of available snapshots by making a list() request.",
+	//   "description": "Returns the specified Snapshot resource.",
 	//   "flatPath": "projects/{project}/global/snapshots/{snapshot}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.snapshots.get",
@@ -173235,8 +179957,7 @@ type SslCertificatesGetCall struct {
 	header_        http.Header
 }
 
-// Get: Returns the specified SslCertificate resource. Gets a list of
-// available SSL certificates by making a list() request.
+// Get: Returns the specified SslCertificate resource.
 //
 // - project: Project ID for this request.
 // - sslCertificate: Name of the SslCertificate resource to return.
@@ -173347,7 +180068,7 @@ func (c *SslCertificatesGetCall) Do(opts ...googleapi.CallOption) (*SslCertifica
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified SslCertificate resource. Gets a list of available SSL certificates by making a list() request.",
+	//   "description": "Returns the specified SslCertificate resource.",
 	//   "flatPath": "projects/{project}/global/sslCertificates/{sslCertificate}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.sslCertificates.get",
@@ -174467,8 +181188,7 @@ type SslPoliciesInsertCall struct {
 	header_    http.Header
 }
 
-// Insert: Returns the specified SSL policy resource. Gets a list of
-// available SSL policies by making a list() request.
+// Insert: Returns the specified SSL policy resource.
 //
 // - project: Project ID for this request.
 func (r *SslPoliciesService) Insert(project string, sslpolicy *SslPolicy) *SslPoliciesInsertCall {
@@ -174585,7 +181305,7 @@ func (c *SslPoliciesInsertCall) Do(opts ...googleapi.CallOption) (*Operation, er
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified SSL policy resource. Gets a list of available SSL policies by making a list() request.",
+	//   "description": "Returns the specified SSL policy resource.",
 	//   "flatPath": "projects/{project}/global/sslPolicies",
 	//   "httpMethod": "POST",
 	//   "id": "compute.sslPolicies.insert",
@@ -176016,8 +182736,7 @@ type SubnetworksGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified subnetwork. Gets a list of available
-// subnetworks list() request.
+// Get: Returns the specified subnetwork.
 //
 // - project: Project ID for this request.
 // - region: Name of the region scoping this request.
@@ -176131,7 +182850,7 @@ func (c *SubnetworksGetCall) Do(opts ...googleapi.CallOption) (*Subnetwork, erro
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified subnetwork. Gets a list of available subnetworks list() request.",
+	//   "description": "Returns the specified subnetwork.",
 	//   "flatPath": "projects/{project}/regions/{region}/subnetworks/{subnetwork}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.subnetworks.get",
@@ -179275,8 +185994,7 @@ type TargetHttpProxiesGetCall struct {
 	header_         http.Header
 }
 
-// Get: Returns the specified TargetHttpProxy resource. Gets a list of
-// available target HTTP proxies by making a list() request.
+// Get: Returns the specified TargetHttpProxy resource.
 //
 // - project: Project ID for this request.
 // - targetHttpProxy: Name of the TargetHttpProxy resource to return.
@@ -179387,7 +186105,7 @@ func (c *TargetHttpProxiesGetCall) Do(opts ...googleapi.CallOption) (*TargetHttp
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified TargetHttpProxy resource. Gets a list of available target HTTP proxies by making a list() request.",
+	//   "description": "Returns the specified TargetHttpProxy resource.",
 	//   "flatPath": "projects/{project}/global/targetHttpProxies/{targetHttpProxy}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.targetHttpProxies.get",
@@ -180699,8 +187417,7 @@ type TargetHttpsProxiesGetCall struct {
 	header_          http.Header
 }
 
-// Get: Returns the specified TargetHttpsProxy resource. Gets a list of
-// available target HTTPS proxies by making a list() request.
+// Get: Returns the specified TargetHttpsProxy resource.
 //
 // - project: Project ID for this request.
 // - targetHttpsProxy: Name of the TargetHttpsProxy resource to return.
@@ -180811,7 +187528,7 @@ func (c *TargetHttpsProxiesGetCall) Do(opts ...googleapi.CallOption) (*TargetHtt
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified TargetHttpsProxy resource. Gets a list of available target HTTPS proxies by making a list() request.",
+	//   "description": "Returns the specified TargetHttpsProxy resource.",
 	//   "flatPath": "projects/{project}/global/targetHttpsProxies/{targetHttpsProxy}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.targetHttpsProxies.get",
@@ -182847,8 +189564,7 @@ type TargetInstancesGetCall struct {
 	header_        http.Header
 }
 
-// Get: Returns the specified TargetInstance resource. Gets a list of
-// available target instances by making a list() request.
+// Get: Returns the specified TargetInstance resource.
 //
 // - project: Project ID for this request.
 // - targetInstance: Name of the TargetInstance resource to return.
@@ -182962,7 +189678,7 @@ func (c *TargetInstancesGetCall) Do(opts ...googleapi.CallOption) (*TargetInstan
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified TargetInstance resource. Gets a list of available target instances by making a list() request.",
+	//   "description": "Returns the specified TargetInstance resource.",
 	//   "flatPath": "projects/{project}/zones/{zone}/targetInstances/{targetInstance}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.targetInstances.get",
@@ -184340,8 +191056,7 @@ type TargetPoolsGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified target pool. Gets a list of available
-// target pools by making a list() request.
+// Get: Returns the specified target pool.
 //
 // - project: Project ID for this request.
 // - region: Name of the region scoping this request.
@@ -184455,7 +191170,7 @@ func (c *TargetPoolsGetCall) Do(opts ...googleapi.CallOption) (*TargetPool, erro
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified target pool. Gets a list of available target pools by making a list() request.",
+	//   "description": "Returns the specified target pool.",
 	//   "flatPath": "projects/{project}/regions/{region}/targetPools/{targetPool}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.targetPools.get",
@@ -185896,8 +192611,7 @@ type TargetSslProxiesGetCall struct {
 	header_        http.Header
 }
 
-// Get: Returns the specified TargetSslProxy resource. Gets a list of
-// available target SSL proxies by making a list() request.
+// Get: Returns the specified TargetSslProxy resource.
 //
 // - project: Project ID for this request.
 // - targetSslProxy: Name of the TargetSslProxy resource to return.
@@ -186008,7 +192722,7 @@ func (c *TargetSslProxiesGetCall) Do(opts ...googleapi.CallOption) (*TargetSslPr
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified TargetSslProxy resource. Gets a list of available target SSL proxies by making a list() request.",
+	//   "description": "Returns the specified TargetSslProxy resource.",
 	//   "flatPath": "projects/{project}/global/targetSslProxies/{targetSslProxy}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.targetSslProxies.get",
@@ -187854,8 +194568,7 @@ type TargetTcpProxiesGetCall struct {
 	header_        http.Header
 }
 
-// Get: Returns the specified TargetTcpProxy resource. Gets a list of
-// available target TCP proxies by making a list() request.
+// Get: Returns the specified TargetTcpProxy resource.
 //
 // - project: Project ID for this request.
 // - targetTcpProxy: Name of the TargetTcpProxy resource to return.
@@ -187966,7 +194679,7 @@ func (c *TargetTcpProxiesGetCall) Do(opts ...googleapi.CallOption) (*TargetTcpPr
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified TargetTcpProxy resource. Gets a list of available target TCP proxies by making a list() request.",
+	//   "description": "Returns the specified TargetTcpProxy resource.",
 	//   "flatPath": "projects/{project}/global/targetTcpProxies/{targetTcpProxy}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.targetTcpProxies.get",
@@ -189290,8 +196003,7 @@ type TargetVpnGatewaysGetCall struct {
 	header_          http.Header
 }
 
-// Get: Returns the specified target VPN gateway. Gets a list of
-// available target VPN gateways by making a list() request.
+// Get: Returns the specified target VPN gateway.
 //
 // - project: Project ID for this request.
 // - region: Name of the region for this request.
@@ -189405,7 +196117,7 @@ func (c *TargetVpnGatewaysGetCall) Do(opts ...googleapi.CallOption) (*TargetVpnG
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified target VPN gateway. Gets a list of available target VPN gateways by making a list() request.",
+	//   "description": "Returns the specified target VPN gateway.",
 	//   "flatPath": "projects/{project}/regions/{region}/targetVpnGateways/{targetVpnGateway}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.targetVpnGateways.get",
@@ -190584,8 +197296,7 @@ type UrlMapsGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified UrlMap resource. Gets a list of available
-// URL maps by making a list() request.
+// Get: Returns the specified UrlMap resource.
 //
 // - project: Project ID for this request.
 // - urlMap: Name of the UrlMap resource to return.
@@ -190696,7 +197407,7 @@ func (c *UrlMapsGetCall) Do(opts ...googleapi.CallOption) (*UrlMap, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified UrlMap resource. Gets a list of available URL maps by making a list() request.",
+	//   "description": "Returns the specified UrlMap resource.",
 	//   "flatPath": "projects/{project}/global/urlMaps/{urlMap}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.urlMaps.get",
@@ -192357,8 +199068,7 @@ type VpnGatewaysGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified VPN gateway. Gets a list of available VPN
-// gateways by making a list() request.
+// Get: Returns the specified VPN gateway.
 //
 // - project: Project ID for this request.
 // - region: Name of the region for this request.
@@ -192472,7 +199182,7 @@ func (c *VpnGatewaysGetCall) Do(opts ...googleapi.CallOption) (*VpnGateway, erro
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified VPN gateway. Gets a list of available VPN gateways by making a list() request.",
+	//   "description": "Returns the specified VPN gateway.",
 	//   "flatPath": "projects/{project}/regions/{region}/vpnGateways/{vpnGateway}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.vpnGateways.get",
@@ -194004,8 +200714,7 @@ type VpnTunnelsGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified VpnTunnel resource. Gets a list of
-// available VPN tunnels by making a list() request.
+// Get: Returns the specified VpnTunnel resource.
 //
 // - project: Project ID for this request.
 // - region: Name of the region for this request.
@@ -194119,7 +200828,7 @@ func (c *VpnTunnelsGetCall) Do(opts ...googleapi.CallOption) (*VpnTunnel, error)
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified VpnTunnel resource. Gets a list of available VPN tunnels by making a list() request.",
+	//   "description": "Returns the specified VpnTunnel resource.",
 	//   "flatPath": "projects/{project}/regions/{region}/vpnTunnels/{vpnTunnel}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.vpnTunnels.get",
@@ -195595,8 +202304,7 @@ type ZonesGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns the specified Zone resource. Gets a list of available
-// zones by making a list() request.
+// Get: Returns the specified Zone resource.
 //
 // - project: Project ID for this request.
 // - zone: Name of the zone resource to return.
@@ -195707,7 +202415,7 @@ func (c *ZonesGetCall) Do(opts ...googleapi.CallOption) (*Zone, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the specified Zone resource. Gets a list of available zones by making a list() request.",
+	//   "description": "Returns the specified Zone resource.",
 	//   "flatPath": "projects/{project}/zones/{zone}",
 	//   "httpMethod": "GET",
 	//   "id": "compute.zones.get",
