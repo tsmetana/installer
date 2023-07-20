@@ -17,7 +17,7 @@ import (
 
 // Platform collects GCP-specific configuration.
 func Platform() (*gcp.Platform, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 	project, err := selectProject(ctx)
 	if err != nil {

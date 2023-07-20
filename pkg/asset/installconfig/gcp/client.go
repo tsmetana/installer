@@ -20,7 +20,7 @@ import (
 
 //go:generate mockgen -source=./client.go -destination=./mock/gcpclient_generated.go -package=mock
 
-const defaultTimeout = 2 * time.Minute
+const defaultTimeout = 15 * time.Minute
 
 var (
 	// RequiredBasePermissions is the list of permissions required for an installation.
